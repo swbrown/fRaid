@@ -1,0 +1,11 @@
+## Interface: 30200
+## Title: fRaid
+## Description: Tamrah's raiding addon
+## SavedVariables: fRaidDB
+## Dependencies: fLib
+
+embeds.xml
+fRaid.lua
+fRaidLoot.lua
+fRaidMob.lua
+fRaidBid.lua
