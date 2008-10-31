@@ -48,8 +48,8 @@ function fRaidLoot.Scan()
 end
 
 function fRaidLoot.Test(...)
-	print('fRaidLoot.Test')
+	--print('fRaidLoot.Test')
 	for i=1, select('#', ...) do
-		print(i..'='..select(i,...))
+		--print(i..'='..select(i,...))
 	end
 end

@@ -126,7 +126,7 @@ function addon:OnInitialize()
 	self.BlizOptionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(NAME, NAME)
 	
 	self:RegisterEvent("CHAT_MSG_WHISPER")
-	self:RegisterEvent('LOOT_OPENED', fRaidLoot.Scan)
+	self:RegisterEvent('LOOT_OPENED')--, fRaidLoot.Scan)
 	self:RegisterEvent('CHAT_MSG_LOOT', fRaidLoot.Test)
 	--self:RegisterEvent('LOOT_SLOT_CLEARED', fRaidLoot.Test)
 	--self:RegisterEvent('CANCEL_LOOT_ROLL', fRaidLoot.Test)
@@ -134,12 +134,11 @@ function addon:OnInitialize()
 	--self:RegisterEvent('CONFIRM_LOOT_ROLL', fRaidLoot.Test)
 	--self:RegisterEvent('EQUIP_BIND_CONFIRM', fRaidLoot.Test)
 	--self:RegisterEvent('LOOT_BIND_CONFIRM', fRaidLoot.Test)
-	--self:RegisterEvent('LOOT_CLOSED', fRaidLoot.Test)
-	--self:RegisterEvent('LOOT_OPENED', fRaidLoot.Test)
-	self:RegisterEvent('OPEN_MASTER_LOOT_LIST', fRaidLoot.Test)
-	self:RegisterEvent('PARTY_LOOT_METHOD_CHANGED', fRaidLoot.Test)
-	self:RegisterEvent('START_LOOT_ROLL', fRaidLoot.Test)
-	self:RegisterEvent('UPDATE_MASTER_LOOT_LIST', fRaidLoot.Test)
+	self:RegisterEvent('LOOT_CLOSED')--, fRaidLoot.Test)
+	--self:RegisterEvent('OPEN_MASTER_LOOT_LIST', fRaidLoot.Test)
+	--self:RegisterEvent('PARTY_LOOT_METHOD_CHANGED', fRaidLoot.Test)
+	--self:RegisterEvent('START_LOOT_ROLL', fRaidLoot.Test)
+	--self:RegisterEvent('UPDATE_MASTER_LOOT_LIST', fRaidLoot.Test)
 	
 	
 	
@@ -165,6 +164,8 @@ function addon:OnDisable()
 	self:Debug("<<OnDisable>> start")
 end
 
+--==================================================================================================
+--Events
 --CHAT_MSG_WHISPER handler
 function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	msg = strlower(strtrim(msg))
@@ -182,6 +183,7 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	if cmd == self.db.global.prefix.bid then
 		--BID whisper
 		--"bid" number amount
+		local playername = author
 		local number = 0
 		local amount = 0
 		
@@ -193,8 +195,19 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 			amount = tonumber(words[3])
 		end
 		
-		--addbid(author, number, amount)
+		fRaidBid.AddBid(playername, number, amount)
 	end
+end
+
+function addon:LOOT_OPENED(...)
+	fRaidLoot.Scan(...)
+	fRaidLoot.Test(...)
+	fRaidBid:LOOT_OPENED(...)
+end
+
+function addon:LOOT_CLOSED(...)
+	fRaidLoot.Test(...)
+	fRaidBid:LOOT_CLOSED(...)
 end
 
 --==================================================================================================
