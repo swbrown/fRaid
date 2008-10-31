@@ -2,6 +2,8 @@ fRaidBid = {}
 local addon = fRaidBid
 local NAME = 'fRaidBid'
 local db = {}
+local LISTDISPLAY = {}
+addon.LISTDISPLAY = LISTDISPLAY
 
 function addon:OnInitialize()
 	db = fRaid.db.global.fRaidBid
@@ -14,6 +16,7 @@ function addon:OnInitialize()
 	if db.winnerlist == nil then
 		db.winnerlist = {}
 	end
+	LISTDISPLAY.OnInitialize()
 	addon.CreateGUI()
 end
 
@@ -39,6 +42,15 @@ function BIDLIST.Clear()
 	addon.RefreshGUI()
 end
 
+function BIDLIST.GetAvailableNumbers()
+	local nums = {}
+	for idx,info in ipairs(db.bidlist) do
+		tinsert(nums, info.number)
+	end
+	
+	return nums
+end
+
 function BIDLIST.GetItemLinkByNumber(number)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
@@ -47,6 +59,14 @@ function BIDLIST.GetItemLinkByNumber(number)
 	end
 	
 	return ''
+end
+
+function BIDLIST.GetItemInfo(number)
+	for idx,info in ipairs(db.bidlist) do
+		if info.number == number then
+			return info
+		end
+	end
 end
 
 --accepts a stringn or a list of strings
@@ -110,6 +130,18 @@ function BIDLIST.RemoveItem(itemlink)
 	--invalid itemlink...
 end
 
+local function bidcomparer(a, b)
+	if a== nil or b == nil then
+		return true
+	end
+	
+	if a.amount == b.amount then
+		return a.name < b.name
+	else
+		return a.amount < b.amount
+	end
+end
+
 function BIDLIST.AddBid(playername, number, bidamount)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
@@ -135,11 +167,13 @@ function BIDLIST.AddBid(playername, number, bidamount)
 	--invalid number...
 end
 
-function BIDLIST.RemoveBid(number, playername)
+function BIDLIST.RemoveBid(playername, number)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
 			for idx2,bid in ipairs(info.bids) do
+				fRaid:Debug('macthing '..bid.name..' with '..playername)
 				if bid.name == playername then
+					fRaid:Debug('removing '..bid.name)
 					tremove(info.bids, idx2)
 					--refresh gui
 					addon.RefreshGUI()
@@ -165,35 +199,78 @@ function fRaidBid.Scan()
 			tinsert(loots, link)
 		end
 	end
-	if #link > 0 then
+	if #loots > 0 then
 		BIDLIST.AddItem(loots)
 	end
 end
 
-function fRaidBid.AddBid(playername, number, amount)
+function fRaidBid.AddBid(playername, number, cmd)
 	if not playername then
-		fRaid:Whisper('Invalid bid: missing playername')
+		fRaid:Whisper(playername,'Invalid bid: missing playername')
 		return
 	end
+	local nums = BIDLIST.GetAvailableNumbers()
 	if not number then
-		fRaid:Whisper('Invalid bid: invalid or missing bid number')
+		fRaid:Whisper(playername,'Invalid bid: invalid or missing bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
 		return
 		--TODO: fancy this up by including the available bid numbers
 	end
-	if not amount then
-		fRaid:Whisper('Invalid bid: invalid or missing bid amount')
-		return
-		--TODO: fancy this up by including their dkp amount
-	end
-
-	local link = BIDLIST.GetItemLinkByNumber(number)
-	if not link or link == '' then
-		fRaid:Whisper('Invalid bid: invalid bid number')
+	
+	local iteminfo = BIDLIST.GetItemInfo(number)
+	if not iteminfo then
+		fRaid:Whisper(playername, 'Invalid bid: invalid bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
 		return
 	end
 	
+	local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(playername)
+	
+	if not cmd or (type(tonumber(cmd)) ~= 'number' and type(cmd) ~= 'string') then
+		local msg = 'Invalid bid: invalid or missing bid amount or min or all or cancel\n'
+		if dkpinfo then
+			msg = msg ..'You have ' .. dkpinfo.dkp.. ' dkp available'
+		else
+			msg = msg .. 'You have no dkp available'
+		end
+		fRaid:Whisper(playername, msg)
+		return
+	end
+	
+	local amount = 0
+	if type(tonumber(cmd)) == 'number' then
+		fRaid:Debug('is a number')
+		amount = cmd
+	else
+		if cmd == 'all' then
+			if dkpinfo then
+				if dkpinfo.dkp > 0 then
+					amount = dkpinfo.dkp
+				elseif dkpinfo.dkp == 0 then
+					fRaid:Whisper(playername, 'You have no dkp available, you can still bid min by whispering bid number min')
+					return
+				else
+					fRaid:Whisper(playername, 'You have negative dkp available, you can still bid min by whispering bid number min')
+					return
+				end
+			else
+				fRaid:Whisper(playername, 'You have no dkp available, you can still bid min by whispering bid number min')
+				return
+			end
+		elseif cmd == 'min' then
+			local lootinfo = fRaidLoot.GetInfo(iteminfo.id)
+			if lootinfo then
+				amount = lootinfo.mindkp
+			else
+				amount = 0
+			end
+		elseif cmd == 'cancel' then
+			BIDLIST.RemoveBid(playername, number)
+			fRaid:Whisper(playername, 'Your bid on ' .. iteminfo.link..' has been removed')
+			return
+		end
+	end
+	
 	BIDLIST.AddBid(playername, number, amount)
-	fRaid:Whisper('Accepted ' .. playername .. '\'s bid on ' .. link .. ' for ' .. amount .. ' DKP.')
+	fRaid:Whisper(playername, 'Accepted ' .. playername .. '\'s bid on ' .. iteminfo.link .. ' for ' .. amount .. ' DKP.')
 end
 
 --==================================================================================================
@@ -221,7 +298,7 @@ local padding = 8
 local x = 8
 local y = 8
 local minwidth = 225
-local minheight = 150
+local minheight = 100
 local startrowsy = 8
 
 function addon.CreateGUI()
@@ -257,52 +334,93 @@ function addon.CreateGUI()
 	local tex = fLib.GUI.CreateSeparator(mw, -y)
 	y = y + tex:GetHeight() + padding
 	
-	startrowsy = y
-	addon.RefreshGUI()
-	
 	--Clear Button
 	button = fLib.GUI.CreateActionButton('Clear', mw, 0, 0, BIDLIST.Clear)
 	button:ClearAllPoints()
 	button:SetPoint('BOTTOMLEFT', mw, 'BOTTOMLEFT', padding+8, padding+8)
 	
+	LISTDISPLAY.startx = x
+	LISTDISPLAY.starty = y
+	addon.RefreshGUI()
 end
 
-local rows = {}
 function addon.RefreshGUI()
 	fRaid:Debug('refreshing gui')
 	addon.GUI:SetWidth(minwidth)
 	addon.GUI:SetHeight(minheight)
 	
-	y = startrowsy
-	local rows_idx = 1
+	local row_idx = 1
+	local lstrow = 0
 	local fs
 	for idx,info in ipairs(BIDLIST.GetList()) do
-		fRaid:Debug('idx='..idx)
-		fs = rows[rows_idx]
-		if fs then
-			fRaid:Debug('fsexists')
-			fs:SetText(info.number .. ' ' .. info.link .. ' ' .. info.count)
-			fs:Show()
-		else
-			fRaid:Debug('making new fs')
-			fs = fLib.GUI.CreateLabel(addon.GUI, x, -y, info.number .. ' ' .. info.link .. ' ' .. info.count)
-			rows[rows_idx] = fs
-		end
-		rows_idx = rows_idx + 1
-		y = y + fs:GetHeight() + padding
+		fs = LISTDISPLAY.GetRow(row_idx)
+		fs:SetText(info.number .. ' ' .. info.link .. 'x' .. info.count)
 		
-		if fs:GetWidth() + padding + padding > addon.GUI:GetWidth() then
-			addon.GUI:SetWidth(fs:GetWidth() + padding + padding)
+		local width = fs:GetWidth() + padding + padding --its weird, fs:GetWidth() gives a larger value, after the first time...
+		fRaid:Debug('idx='..idx)--..'width='..width..',guidwidth='..addon.GUI:GetWidth())
+		if width > addon.GUI:GetWidth() then
+			addon.GUI:SetWidth(width)
+			--fRaid:Debug('new guiwidth='..addon.GUI:GetWidth())
 		end
+		
+		row_idx = row_idx + 1
+		
+		--add bids
+		print('this item has '..#info.bids..' bids')
+		sort(info.bids, bidcomparer)
+		for _,bid in ipairs(info.bids) do
+			fs = LISTDISPLAY.GetRow(row_idx)
+			local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
+			if dkpinfo then
+				fs:SetText('    '..bid.name .. ' bid ' .. bid.amount .. '(has ' .. dkpinfo.dkp .. ' dkp)')
+			else
+				fs:SetText('    '..bid.name .. ' bid ' .. bid.amount .. ' (has no dkp)')
+			end
+			row_idx = row_idx + 1
+		end
+		
+		lstrow = row_idx
 	end
 	
-	for i = rows_idx, #rows do
-		fRaid:Debug('clearing '..i)
-		fs = rows[i]
-		fs:Hide()
-	end
+	LISTDISPLAY.HideRows(lstrow+1)
 	
-	if y > addon.GUI:GetHeight() then
-		addon.GUI:SetHeight(y +100)
+	fRaid:Debug('listdisplay height='..(LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100)..',guiheight='..addon.GUI:GetHeight())
+	if LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100 > addon.GUI:GetHeight() then
+		addon.GUI:SetHeight(LISTDISPLAY.GetHeight() + minheight)
+		fRaid:Debug('new guiheight='..addon.GUI:GetHeight())
 	end
+end
+
+--row management
+function LISTDISPLAY.OnInitialize()
+	LISTDISPLAY.rows = {} --contains fontstrings
+	LISTDISPLAY.startx = 0
+	LISTDISPLAY.starty = 0
+	LISTDISPLAY.rowheight = 20
+	LISTDISPLAY.showingrows = 0
+end
+function LISTDISPLAY.GetRow(i)
+	local fs = LISTDISPLAY.rows[i]
+	if not fs then
+		fRaid:Debug('making new label')
+		fs = fLib.GUI.CreateLabel(addon.GUI, LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)), '')
+		LISTDISPLAY.rows[i] = fs
+	end
+	fs:Show()
+	if i > LISTDISPLAY.showingrows then
+		LISTDISPLAY.showingrows = i
+	end
+	return fs
+end
+
+function LISTDISPLAY.HideRows(i)
+	LISTDISPLAY.showingrows = i-1
+	for idx = i, #LISTDISPLAY.rows do
+		fRaid:Debug('hiding '..idx)
+		LISTDISPLAY.rows[idx]:Hide()
+	end
+end
+
+function LISTDISPLAY.GetHeight()
+	return LISTDISPLAY.showingrows * LISTDISPLAY.rowheight
 end

@@ -82,6 +82,9 @@ local defaults = {
 			x = 100, --relative to left
 			y = 300, --relative to bottom
 		},
+		fRaidLoot = {
+			items = {},
+		},
 		fRaidBid = {
 			gui = {
 				x = 200,
@@ -146,6 +149,7 @@ function addon:OnInitialize()
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter2)
 	
+	fRaidLoot:OnInitialize()
 	fRaidBid:OnInitialize()
 	addon:CreateGUI()
 	
@@ -184,18 +188,18 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		--BID whisper
 		--"bid" number amount
 		local playername = author
-		local number = 0
-		local amount = 0
+		local number = nil
+		local cmd = nil
 		
 		if words[2] then
 			self:Debug("words[2]=" .. words[2])
 			number = tonumber(words[2])
 		end
 		if words[3] then
-			amount = tonumber(words[3])
+			cmd = words[3]
 		end
 		
-		fRaidBid.AddBid(playername, number, amount)
+		fRaidBid.AddBid(playername, number, cmd)
 	end
 end
 

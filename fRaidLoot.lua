@@ -1,6 +1,30 @@
 fRaidLoot = {}
+local addon = fRaidLoot
+local NAME = 'fRaidLoot'
+local db = {}
 
---fRaid.db.global.items (idx => {id, name, rarity, link, mindkp, maxdkp})
+function addon:OnInitialize()
+	db = fRaid.db.global.fRaidLoot
+end
+
+
+
+
+
+
+--db.items (idx => {id, name, rarity, link, mindkp, maxdkp})
+
+
+--add items in the currently open loot window
+function fRaidLoot.Scan()
+	for i = 1, GetNumLootItems() do
+		if LootSlotIsItem(i) then
+			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
+			fRaidLoot.Add(GetLootSlotLink(i))
+		end
+	end
+end
+
 
 --arg can be an item id (number) or item link (string)
 function fRaidLoot.Add(arg)
@@ -15,7 +39,7 @@ function fRaidLoot.Add(arg)
 	end
 	
 	--check to see if its already saved
-	for idx,info in ipairs(fRaid.db.global.items) do
+	for idx,info in ipairs(db.items) do
 		if info.id == id then
 			--don't save
 			fRaid:Debug('item '..id..' already exists')
@@ -27,7 +51,7 @@ function fRaidLoot.Add(arg)
 	local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(id)
 
 	fRaid:Print('Saving '..itemLink)
-	tinsert(fRaid.db.global.items, {
+	tinsert(db.items, {
 		id = id,
 		name = itemName,
 		link = itemLink,
@@ -37,12 +61,10 @@ function fRaidLoot.Add(arg)
 	})
 end
 
---add items in the currently open loot window
-function fRaidLoot.Scan()
-	for i = 1, GetNumLootItems() do
-		if LootSlotIsItem(i) then
-			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
-			fRaidLoot.Add(GetLootSlotLink(i))
+function fRaidLoot.GetInfo(id)
+	for idx,info in ipairs(db.items) do
+		if info.id == id then
+			return info
 		end
 	end
 end
