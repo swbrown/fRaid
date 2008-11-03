@@ -69,6 +69,15 @@ function BIDLIST.GetItemInfo(number)
 	end
 end
 
+function BIDLIST.GetBidInfo(number,playername)
+	local iteminfo = BIDLIST.GetItemInfo(number)
+	for idx,bidinfo in ipairs(iteminfo.bids) do
+		if bidinfo.name == playername then
+			return bidinfo
+		end
+	end
+end
+
 --accepts a stringn or a list of strings
 function BIDLIST.AddItem(data)
 	local itemlink, itemid
@@ -158,6 +167,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 			tinsert(info.bids, {
 				name = playername,
 				amount = bidamount,
+				winner = false,
 			})
 			--refresh gui
 			addon.RefreshGUI()
@@ -189,7 +199,7 @@ end
 --Functions for stuff
 
 --add items in the currently open loot window
-function fRaidBid.Scan()
+function addon.Scan()
 	local link
 	local loots = {}
 	for i = 1, GetNumLootItems() do
@@ -204,7 +214,7 @@ function fRaidBid.Scan()
 	end
 end
 
-function fRaidBid.AddBid(playername, number, cmd)
+function addon.AddBid(playername, number, cmd)
 	if not playername then
 		fRaid:Whisper(playername,'Invalid bid: missing playername')
 		return
@@ -273,6 +283,40 @@ function fRaidBid.AddBid(playername, number, cmd)
 	fRaid:Whisper(playername, 'Accepted ' .. playername .. '\'s bid on ' .. iteminfo.link .. ' for ' .. amount .. ' DKP.')
 end
 
+function addon.ToggleWinner(number, playername)
+	local iteminfo = BIDLIST.GetItemInfo(number)
+	local bidinfo = nil
+	local winnercount = 0
+	for idx,bid in ipairs(iteminfo.bids) do
+		if bid.winner then
+			if bid.name == playername then
+				bid.winner = false
+				return
+			end
+			winnercount = winnercount + 1
+		end
+		if bid.name == playername then
+			bidinfo = bid
+		end
+	end
+	
+	if winnercount >= iteminfo.count then
+		fRaid:Print('Cannot set more than ' .. iteminfo.count .. ' winners')
+		return
+	end
+	
+	bidinfo.winner = true
+end
+
+function addon.AnnounceWinningBids()
+	for idx,biditem in ipairs(BIDLIST.GetList()) do
+		for idx2,bidinfo in ipairs(biditem.bids) do
+			if bidinfo.winner then
+			end
+		end
+	end
+end
+
 --==================================================================================================
 --Events
 
@@ -334,14 +378,20 @@ function addon.CreateGUI()
 	local tex = fLib.GUI.CreateSeparator(mw, -y)
 	y = y + tex:GetHeight() + padding
 	
+	LISTDISPLAY.startx = x
+	LISTDISPLAY.starty = y
+	addon.RefreshGUI()
+	
 	--Clear Button
 	button = fLib.GUI.CreateActionButton('Clear', mw, 0, 0, BIDLIST.Clear)
 	button:ClearAllPoints()
 	button:SetPoint('BOTTOMLEFT', mw, 'BOTTOMLEFT', padding+8, padding+8)
+	y = button:GetHeight() + padding + 8
+	--Announce current winners button
+	button = fLib.GUI.CreateActionButton('Announce Winners', mw, 0,0, nil)
+	button:ClearAllPoints()
+	button:SetPoint('BOTTOM', mw, 'BOTTOM', 0, y + padding)
 	
-	LISTDISPLAY.startx = x
-	LISTDISPLAY.starty = y
-	addon.RefreshGUI()
 end
 
 function addon.RefreshGUI()
@@ -351,12 +401,14 @@ function addon.RefreshGUI()
 	
 	local row_idx = 1
 	local lstrow = 0
-	local fs
+	local bt
 	for idx,info in ipairs(BIDLIST.GetList()) do
-		fs = LISTDISPLAY.GetRow(row_idx)
-		fs:SetText(info.number .. ' ' .. info.link .. 'x' .. info.count)
+		bt = LISTDISPLAY.GetRow(row_idx)
+		bt:SetText(info.number .. ' ' .. info.link .. 'x' .. info.count)
+		bt:SetWidth(bt:GetTextWidth())
+		bt:SetHeight(bt:GetTextHeight())
 		
-		local width = fs:GetWidth() + padding + padding --its weird, fs:GetWidth() gives a larger value, after the first time...
+		local width = bt:GetWidth() + padding + padding --its weird, bt:GetWidth() gives a larger value, after the first time...
 		fRaid:Debug('idx='..idx)--..'width='..width..',guidwidth='..addon.GUI:GetWidth())
 		if width > addon.GUI:GetWidth() then
 			addon.GUI:SetWidth(width)
@@ -369,13 +421,16 @@ function addon.RefreshGUI()
 		print('this item has '..#info.bids..' bids')
 		sort(info.bids, bidcomparer)
 		for _,bid in ipairs(info.bids) do
-			fs = LISTDISPLAY.GetRow(row_idx)
+			bt = LISTDISPLAY.GetRow(row_idx)
 			local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
 			if dkpinfo then
-				fs:SetText('    '..bid.name .. ' bid ' .. bid.amount .. '(has ' .. dkpinfo.dkp .. ' dkp)')
+				bt:SetText('    '..bid.name .. ' bid ' .. bid.amount .. '(has ' .. dkpinfo.dkp .. ' dkp)')
 			else
-				fs:SetText('    '..bid.name .. ' bid ' .. bid.amount .. ' (has no dkp)')
+				bt:SetText('    '..bid.name .. ' bid ' .. bid.amount .. ' (has no dkp)')
 			end
+			bt:SetWidth(bt:GetTextWidth())
+			bt:SetHeight(bt:GetTextHeight())
+			bt:SetScript('OnClick', function() addon.ToggleWinner(info.number, bid.name) end)
 			row_idx = row_idx + 1
 		end
 		
@@ -384,33 +439,128 @@ function addon.RefreshGUI()
 	
 	LISTDISPLAY.HideRows(lstrow+1)
 	
-	fRaid:Debug('listdisplay height='..(LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100)..',guiheight='..addon.GUI:GetHeight())
+	--fRaid:Debug('listdisplay height='..(LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100)..',guiheight='..addon.GUI:GetHeight())
 	if LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100 > addon.GUI:GetHeight() then
 		addon.GUI:SetHeight(LISTDISPLAY.GetHeight() + minheight)
-		fRaid:Debug('new guiheight='..addon.GUI:GetHeight())
+		--fRaid:Debug('new guiheight='..addon.GUI:GetHeight())
 	end
 end
 
 --row management
 function LISTDISPLAY.OnInitialize()
-	LISTDISPLAY.rows = {} --contains fontstrings
+	LISTDISPLAY.columns = {} --contains frames for the bottons to attach to
+	LISTDISPLAY.rows = {} --contains buttons
 	LISTDISPLAY.startx = 0
 	LISTDISPLAY.starty = 0
 	LISTDISPLAY.rowheight = 20
 	LISTDISPLAY.showingrows = 0
 end
-function LISTDISPLAY.GetRow(i)
-	local fs = LISTDISPLAY.rows[i]
-	if not fs then
-		fRaid:Debug('making new label')
-		fs = fLib.GUI.CreateLabel(addon.GUI, LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)), '')
-		LISTDISPLAY.rows[i] = fs
+
+--returns the column frame for column i
+function LISTDISPLAY.GetColumn(i)
+	if i < 1 then
+		return nil
 	end
-	fs:Show()
+	local cframe = LISTDISPLAY.columns[i]
+	if not cframe then
+		--create cframe
+		cframe = CreateFrame('frame', nil, addon.GUI)
+		if i == 1 then
+			cframe:SetPoint('TOPLEFT', startx, -starty)
+		else
+			local prevcframe = LISTDISPLAY.GetColumn(i-1)
+			cframe:SetPoint('TOPLEFT', prevcframe, 'TOPRIGHT', 0, 0)
+		end
+	end
+	return cframe
+end
+
+function LISTDISPLAY.GetRow(i)
+	if i < 1 then
+		return nil
+	end
+	local row = LISTDISPLAY.rows[i]
+	if not row then
+		--create row
+		row = {}
+		if i > 1 then
+			--check previous row exists
+			local prevrow = LISTDISPLAY.GetRow(i-1)
+		end
+		LISTDISPLAY.rows[i] = row
+	end
+	return row
+end
+
+function LISTDISPLAY.SetRow(i, items)
+	if i < 1 then
+		return
+	end
+	
+	local row = LISTDISPLAY.GetRow(i)
+	
+	
+	
+	local cframe, cell, prevcell
+	--for each item, fill in the cell
+	--if the cell doens't exist yet, create it
+	for cnum = 1, #items do
+		cell = row[cnum]
+		if not cell then
+			--create it
+			cframe = LISTDISPLAY.GetColumn(cnum)
+			cell = CreateFrame('button', nil, cframe)
+			cell:SetFontString(cell:CreateFontString(nil, 'OVERLAY', 'GameFontNormal'))
+			if i == 1 then
+				--attach it to cframe
+				cell:SetPoint('TOPLEFT', cframe, 'TOPLEFT', 0, 0)
+				cell:SetPoint('TOPRIGHT', cframe, 'TOPRIGHT', 0, 0)
+			else
+				--attach it to previous row's cell
+				prevcell = prevrow[cnum]
+				cell:SetPoint('TOPLEFT', prevcell, 'BOTTOMLEFT', 0, 0)
+				cell:SetPoint('TOPRIGHT', prevcell, 'BOTTOMRIGHT', 0, 0)
+			end
+		end
+		--fill in cell
+		--fix column's width
+	end
+end
+
+--items - list of values in a row
+function LISTDISPLAY.SetRow(items, row_idx)
+	--first column contains checkbox
+	local c_idx = 1
+	local cframe = LISTDISPLAY.GetColumn(c_idx)
+	local check = LISTDISPLAY.rows[1]
+	if not check then
+		check =	fLib.GUI.CreateCheck(cframe, 0, -(row_idx*LISTDISPLAY.rowheight))
+		LISTDISPLAY.rows[1] = check
+	end
+	c_idx = c_idx + 1
+	
+	local bt
+	for _,val in ipairs(items) do
+		cframe = LISTDISPLAY.GetColumn(c_idx)
+		bt = f
+		c_idx = c_idx + 1
+	end
+end
+
+function LISTDISPLAY.GetRow(i)
+	local bt = LISTDISPLAY.rows[i]
+	if not bt then
+		fRaid:Debug('making new label')
+		--bt = fLib.GUI.CreateLabel(addon.GUI, LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)), '')
+		bt = fLib.GUI.CreateActionButton('', addon.GUI, LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)), nil)
+		bt:SetPoint('TOPRIGHT', addon.GUI, 'TOPRIGHT', -LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)))
+		LISTDISPLAY.rows[i] = bt
+	end
+	--bt:Show()
 	if i > LISTDISPLAY.showingrows then
 		LISTDISPLAY.showingrows = i
 	end
-	return fs
+	return bt
 end
 
 function LISTDISPLAY.HideRows(i)
