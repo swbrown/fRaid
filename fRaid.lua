@@ -84,6 +84,10 @@ local defaults = {
 		},
 		fRaidLoot = {
 			items = {},
+			gui = {
+				x = -200,
+				y = 200,
+			},
 		},
 		fRaidBid = {
 			gui = {
@@ -130,7 +134,7 @@ function addon:OnInitialize()
 	
 	self:RegisterEvent("CHAT_MSG_WHISPER")
 	self:RegisterEvent('LOOT_OPENED')--, fRaidLoot.Scan)
-	self:RegisterEvent('CHAT_MSG_LOOT', fRaidLoot.Test)
+	self:RegisterEvent('CHAT_MSG_LOOT', fRaidBid.CHAT_MSG_LOOT)
 	--self:RegisterEvent('LOOT_SLOT_CLEARED', fRaidLoot.Test)
 	--self:RegisterEvent('CANCEL_LOOT_ROLL', fRaidLoot.Test)
 	--self:RegisterEvent('CHAT_MSG_MONEY', fRaidLoot.Test)
@@ -206,12 +210,18 @@ end
 function addon:LOOT_OPENED(...)
 	fRaidLoot.Scan(...)
 	fRaidLoot.Test(...)
-	fRaidBid:LOOT_OPENED(...)
+	fRaidBid.LOOT_OPENED(...)
 end
 
 function addon:LOOT_CLOSED(...)
 	fRaidLoot.Test(...)
-	fRaidBid:LOOT_CLOSED(...)
+	fRaidBid.LOOT_CLOSED(...)
+end
+
+--======================================================================================
+--Functions
+function addon.GetBidPrefix()
+	return db.prefix.bid
 end
 
 --==================================================================================================
@@ -228,22 +238,67 @@ function addon:CreateGUI()
 	end
 	
 	--Main Window
-	addon.GUI,y = fLib.GUI.CreateMainWindow(NAME, db.gui.x, db.gui.y, 300, 150, padding, savecoordshandler)
+	addon.GUI = fLib.GUI.CreateEmptyFrame(2, NAME .. '_MW')
 	local mw = addon.GUI
+	
+	mw:SetWidth(300)
+	mw:SetHeight(150)
+	mw:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', db.gui.x, db.gui.y)
+		
+	--Title
+	fs = fLib.GUI.CreateLabel(mw)
+	fs:SetText(NAME)
+	fs:SetPoint('TOP', 0, -y)
+	y = y + fs:GetHeight() + padding
+	
+	--Close Button
+	button = fLib.GUI.CreateActionButton(mw)
+	button:SetText('Close')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function()
+		mw:Toggle()
+	end)
+	button:SetPoint('BOTTOMRIGHT', mw, 'BOTTOMRIGHT', -padding-8, padding+8)
 	
 	--Initialize tables for storage
 	mw.AddLoot = {}
 	mw.AddInvLoot = {}
 	
 	--Some functions for mainwindow
-	
+	function mw:SaveLocation()
+		db.gui.x = self:GetLeft()
+		db.gui.y = self:GetTop()
+	end
 	--Scripts for mainwindow
+	mw:SetScript('OnHide', function()
+		this:SaveLocation()
+	end)
 	
-	button = fLib.GUI.CreateActionButton('Open Bid Window', mw, x,-y, fRaidBid.GUI.Toggle)
+	button = fLib.GUI.CreateActionButton(mw)
+	button:SetText('Open Bid Window')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() fRaidBid.GUI:Toggle()  end)
+	button:SetPoint('TOPLEFT', x, -y)
+
 	x = x + 120
-	button = fLib.GUI.CreateActionButton('Open DKP Window', mw, x,-y, fDKP.GUI.Toggle)
+	button = fLib.GUI.CreateActionButton(mw)
+	button:SetText('Open DKP Window')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() fDKP.GUI:Toggle() end)
+	button:SetPoint('TOPLEFT', x, -y)
+
 	x = padding
 	y = y + button:GetHeight() + padding
+	
+	button = fLib.GUI.CreateActionButton(mw)
+	button:SetText('Configure Loot')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() fRaidLoot:View()  end)
+	button:SetPoint('TOPLEFT', x, -y)
 	
 	--Separator
 	local tex = fLib.GUI.CreateSeparator(mw, -y)

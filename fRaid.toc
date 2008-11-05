@@ -1,4 +1,4 @@
-## Interface: 30200
+## Interface: 30000
 ## Title: fRaid
 ## Description: Tamrah's raiding addon
 ## SavedVariables: fRaidDB
