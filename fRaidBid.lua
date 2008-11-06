@@ -170,13 +170,6 @@ local function bidcomparer(a, b)
 	x = tonumber(a.amount) or 0
 	y = tonumber(b.amount) or 0
 	
-	--[[
-	if a.amount == b.amount then
-		return a.name < b.name
-	else
-		return tonumber(a.amount) < tonumber(b.amount)
-	end
-	--]]
 	if x == y then
 		return a.name < b.name
 	else
