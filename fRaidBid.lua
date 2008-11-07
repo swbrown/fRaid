@@ -3,8 +3,6 @@ local addon = fRaidBid
 local NAME = 'fRaidBid'
 local MYNAME = UnitName('player')
 local db = {}
-local LISTDISPLAY = {}
-addon.LISTDISPLAY = LISTDISPLAY
 
 function addon:OnInitialize()
 	db = fRaid.db.global.fRaidBid
@@ -17,17 +15,17 @@ function addon:OnInitialize()
 	if db.winnerlist == nil then
 		db.winnerlist = {}
 	end
-	LISTDISPLAY.OnInitialize()
-	addon.CreateGUI()
 end
 
 --==================================================================================================
 --BIDLIST
---db.bidnumber
+--db.bidnumber (used to keep track of the current bid number,
+--				which might not match the index of db.bidlist)
 --db.bidlist (idx => {number, itemlink, count, bids})
 --bids (idx => {playername, bidamount})
 local BIDLIST = {}
 addon.BIDLIST = BIDLIST
+
 function BIDLIST.GetCount()
 	return #db.bidlist
 end
@@ -52,16 +50,6 @@ function BIDLIST.GetAvailableNumbers()
 	return nums
 end
 
-function BIDLIST.GetItemLinkByNumber(number)
-	for idx,info in ipairs(db.bidlist) do
-		if info.number == number then
-			return info.link
-		end
-	end
-	
-	return ''
-end
-
 function BIDLIST.GetItemInfoByNumber(number)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
@@ -71,11 +59,8 @@ function BIDLIST.GetItemInfoByNumber(number)
 end
 
 function BIDLIST.GetItemInfoByItemId(itemid)
-	print('getting iteminfo by id')
 	for idx,info in ipairs(db.bidlist) do
-		print('matching ' .. info.id.. ' with ' .. itemid)
 		if info.id == itemid then
-			print('matched')
 			return info
 		end
 	end
@@ -90,7 +75,7 @@ function BIDLIST.GetBidInfo(number,playername)
 	end
 end
 
---accepts a stringn or a list of strings
+--accepts a string or a list of strings
 function BIDLIST.AddItem(data)
 	local itemlink, itemid
 	local matched
@@ -128,7 +113,6 @@ function BIDLIST.AddItem(data)
 	end
 	--refresh gui
 	addon.RefreshGUI()
-
 end
 
 function BIDLIST.RemoveItem(itemlink)
@@ -173,7 +157,7 @@ local function bidcomparer(a, b)
 	if x == y then
 		return a.name < b.name
 	else
-		return x < y
+		return x > y
 	end
 end
 
@@ -196,6 +180,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 				winner = false,
 			})
 			--refresh gui
+			sort(info.bids, bidcomparer)
 			addon.RefreshGUI()
 			return
 		end
@@ -240,13 +225,6 @@ function addon.Scan()
 	end
 end
 
-function addon.AnnounceBidItems()
-	for idx,iteminfo in ipairs(BIDLIST.GetList()) do
-		local msg = iteminfo.number .. ' ' .. iteminfo.link .. ' /w ' .. MYNAME .. ' ' .. fRaid.GetBidPrefix() .. ' number amount'
-		SendChatMessage(msg, 'RAID')
-	end
-end
-
 function addon.AddBid(playername, number, cmd)
 	if not playername then
 		fRaid:Whisper(playername,'Invalid bid: missing playername')
@@ -256,7 +234,6 @@ function addon.AddBid(playername, number, cmd)
 	if not number then
 		fRaid:Whisper(playername,'Invalid bid: invalid or missing bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
 		return
-		--TODO: fancy this up by including the available bid numbers
 	end
 	
 	local iteminfo = BIDLIST.GetItemInfoByNumber(number)
@@ -316,35 +293,18 @@ function addon.AddBid(playername, number, cmd)
 	fRaid:Whisper(playername, 'Accepted ' .. playername .. '\'s bid on ' .. iteminfo.link .. ' for ' .. amount .. ' DKP.')
 end
 
-function addon.ToggleWinner(number, playername)
-	local iteminfo = BIDLIST.GetItemInfoByNumber(number)
-	local bidinfo = nil
-	local winnercount = 0
-	for idx,bid in ipairs(iteminfo.bids) do
-		if bid.winner then
-			if bid.name == playername then
-				bid.winner = false
-				return
-			end
-			winnercount = winnercount + 1
-		end
-		if bid.name == playername then
-			bidinfo = bid
-		end
+function addon.AnnounceBidItems()
+	for idx,iteminfo in ipairs(BIDLIST.GetList()) do
+		local msg = iteminfo.number .. ' ' .. iteminfo.link .. ' /w ' .. MYNAME .. ' ' .. fRaid.GetBidPrefix() .. ' number amount'
+		SendChatMessage(msg, 'RAID')
 	end
-	
-	if winnercount >= iteminfo.count then
-		fRaid:Print('Cannot set more than ' .. iteminfo.count .. ' winners')
-		return
-	end
-	
-	bidinfo.winner = true
 end
 
 function addon.AnnounceWinningBids()
-	for idx,biditem in ipairs(BIDLIST.GetList()) do
-		for idx2,bidinfo in ipairs(biditem.bids) do
+	for idx,iteminfo in ipairs(BIDLIST.GetList()) do
+		for idx2,bidinfo in ipairs(iteminfo.bids) do
 			if bidinfo.winner then
+				SendChatMessage(bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
 			end
 		end
 	end
@@ -355,17 +315,13 @@ end
 
 --open the bid window if it isn't open
 function fRaidBid.LOOT_OPENED()
-	if not addon.GUI:IsVisible() then
-		addon.GUI.Toggle()
-	end
+	addon:ShowGUI()
 end
 
 --close the bid window if no bids
 function fRaidBid.LOOT_CLOSED()
 	if BIDLIST.GetCount() == 0 then
-		if addon.GUI:IsVisible() then
-			addon.GUI.Toggle()
-		end
+		addon:HideGUI()
 	end
 end
 
@@ -409,37 +365,121 @@ end
 
 --==================================================================================================
 --GUI Creation
-local padding = 8
-local x = 8
-local y = 8
-local minwidth = 225
-local minheight = 100
-local startrowsy = 8
-
-function addon.CreateGUI()
-	local bg, fs, button, eb, cb
-	
-	local function savecoordshandler(window)
-		db.gui.x = window:GetLeft()
-		db.gui.y = window:GetTop()
+function fRaidBid.CreateGUI()
+	if addon.GUI then
+		return
 	end
+
+	local padding = 8
+	local x = 8
+	local y = 8
 	
-	--Main Window
+	local itemrowcount = 5
+	local bidrowcount = 8
+
+	--create frames
 	addon.GUI = fLib.GUI.CreateEmptyFrame(2, NAME .. '_MW')
 	local mw = addon.GUI
 	
-	mw:SetWidth(minwidth)
-	mw:SetHeight(minheight)
-	mw:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', db.gui.x, db.gui.y)
-		
-	--Title
-	fs = fLib.GUI.CreateLabel(mw)
-	fs:SetText(NAME)
-	fs:SetPoint('TOP', 0, -y)
-	y = y + fs:GetHeight() + padding
+	mw.subframes = {}
+	for i = 1, 3 do
+		tinsert(mw.subframes, fLib.GUI.CreateClearFrame(mw))
+		--mw.subframes[i]:SetFrameLevel(0)
+		mw.subframes[i]:RegisterForDrag('LeftButton')
+		mw.subframes[i]:SetScript('OnDragStart', function(this, button)
+			mw:StartMoving()
+		end)
+		mw.subframes[i]:SetScript('OnDragStop', function(this, button)
+			mw:StopMovingOrSizing()
+		end)
+	end
 	
-	--Close Button
-	button = fLib.GUI.CreateActionButton(mw)
+	mw:SetWidth(400)
+	mw:SetHeight(350)
+	mw:SetPoint('CENTER', -200, 100)
+	
+	local mw_menu = mw.subframes[1]
+	mw_menu:SetWidth(100)
+	mw_menu:SetHeight(300)
+	mw_menu:SetPoint('TOPLEFT', mw, 'TOPLEFT', 0, -24)
+	
+	local mw_items = mw.subframes[2]
+	mw_items:SetWidth(300)
+	mw_items:SetHeight(125)
+	mw_items:SetPoint('TOPLEFT', mw_menu, 'TOPRIGHT', 0,0)
+	
+	local mw_bids = mw.subframes[3]
+	mw_bids:SetWidth(300)
+	mw_bids:SetHeight(150)
+	mw_bids:SetPoint('TOP', mw_items, 'BOTTOM', 0,0)
+
+	--4 Title: fRaidBid, Items, Bids
+	mw.titles = {}
+	for i = 1, 4 do
+		tinsert(mw.titles, fLib.GUI.CreateLabel(mw))
+	end
+	mw.titles[1]:SetText(NAME)
+	mw.titles[2]:SetText('Announce')
+	mw.titles[3]:SetText('Items')
+	mw.titles[4]:SetText('Bids')
+	
+	mw.titles[1]:SetPoint('TOP', 0, -padding)
+	mw.titles[2]:SetPoint('TOPLEFT', mw_menu, 'TOPLEFT', padding, -padding)
+	mw.titles[3]:SetPoint('TOPLEFT', mw_items, 'TOPLEFT', padding, -padding)
+	mw.titles[4]:SetPoint('TOPLEFT', mw_bids, 'TOPLEFT', padding, -padding)
+	
+	--6 Buttons: Add Loot, Announce Items, Announce Current Winners, Clear Items, Info, Close
+	mw.buttons = {}
+	for i = 1, 6 do	
+		tinsert(mw.buttons, fLib.GUI.CreateActionButton(mw))
+		mw.buttons[i]:SetFrameLevel(3)
+	end
+
+	--Add Loot button
+	button = mw.buttons[1]
+	button:SetText('Add Loot')
+	button:GetFontString():SetFontObject(GameFontHighlightLarge)
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() addon:Scan()  end)
+	button:SetPoint('TOPRIGHT', mw, 'TOPRIGHT', -padding, -padding)
+	
+	--Announce items for bid
+	button = mw.buttons[2]
+	button:SetText('  >Items')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() addon.AnnounceBidItems() end)
+	button:SetPoint('TOPLEFT', mw.titles[2], 'BOTTOMLEFT', 0, -4)
+
+	--Announce current winners button
+	button = mw.buttons[3]
+	button:SetText('  >Winners')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() addon.AnnounceWinningBids()  end)
+	button:SetPoint('TOPLEFT', mw.buttons[2], 'BOTTOMLEFT', 0, -4)
+	
+	--Info button
+	button = mw.buttons[4]
+	button:SetText('Info >')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function()
+		--mw:Toggle()
+	end)
+	button:SetPoint('TOPLEFT', mw.buttons[3], 'BOTTOMLEFT', 0,-padding)
+	
+	--Clear button
+	button = mw.buttons[5]
+	button:SetText('Clear')
+	button:SetWidth(button:GetTextWidth())
+	button:SetHeight(button:GetTextHeight())
+	button:SetScript('OnClick', function() BIDLIST.Clear()  end)
+	button:SetPoint('BOTTOMLEFT', mw, 'BOTTOMLEFT', padding+8, padding+8)
+	
+	--Close button
+	button = mw.buttons[6]
 	button:SetText('Close')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
@@ -448,250 +488,504 @@ function addon.CreateGUI()
 	end)
 	button:SetPoint('BOTTOMRIGHT', mw, 'BOTTOMRIGHT', -padding-8, padding+8)
 	
-	--Initialize tables for storage
-	mw.AddLoot = {}
-	mw.AddInvLoot = {}
+	--Scripts for mainwindow
+	mw:SetScript('OnShow', function()
+		--check if we need refreshing
+		if this.needRefresh then
+			this:Refresh()
+		end
+		tinsert(UISpecialFrames,this:GetName())
+	end)
+	mw:SetScript('OnHide', function()
+		this:SaveLocation()
+	end)
 	
 	--Some functions for mainwindow
 	function mw:SaveLocation()
 		db.gui.x = self:GetLeft()
 		db.gui.y = self:GetTop()
 	end
-	--Scripts for mainwindow
-	mw:SetScript('OnHide', function()
-		this:SaveLocation()
+	
+	mw_items.selecteditemindex = 1 --users click on an item to select which bids are showing in mw_bids
+	mw_items.startingindex = 1 --for scrolling, the index of the first item showing in mw_items
+	mw_bids.startingindex = 1 --for scrolling, the index of the first bid showing in mw_bids
+	
+	--reloads the data in mw_items and mw_bids
+	function mw:Refresh()
+		self:LoadItemRows(mw_items.startingindex)
+		self:LoadBidRows(mw_bids.startingindex)
+		self.needRefresh = false
+	end
+	
+	--loads data into mw_items
+	function mw:LoadItemRows(startingindex)
+		mw_items.startingindex= startingindex
+		if BIDLIST.GetCount() > itemrowcount then
+			mw_items.slider:SetMinMaxValues(1, BIDLIST.GetCount() - itemrowcount + 1)
+		else
+			mw_items.slider:Hide()
+		end
+		local items = BIDLIST.GetList()
+		local iteminfo
+		local z = 1 --current ui row
+		for i = startingindex, startingindex + itemrowcount - 1 do
+			iteminfo = items[i]
+			if iteminfo then
+				--fill in this row's ui with data
+				mw_items.col1[z]:SetText(iteminfo.number)
+				mw_items.col1[z]:Show()
+				
+				mw_items.col2[z]:SetText(iteminfo.link .. 'x' .. iteminfo.count)
+				mw_items.col2[z]:Show()
+				mw_items.col2[z].itemindex = i
+				mw_items.col2[z].highlightspecial:Hide()
+				if i == mw_items.selecteditemindex then
+					mw_items.col2[z].highlightspecial:Show()
+				end
+			else
+				--hide this row's ui
+				mw_items.col1[z]:Hide()
+				mw_items.col2[z]:Hide()
+				mw_items.col2[z].highlightspecial:Hide()
+			end
+			
+			z = z + 1
+		end
+	end
+	
+	--loads data into mw_bids
+	function mw:LoadBidRows(startingindex)
+		mw_bids.startingindex= startingindex
+		local items = BIDLIST.GetList()
+		local iteminfo = items[mw_items.selecteditemindex]
+		local bids = {}
+		local bidinfo
+		if iteminfo then
+			bids = iteminfo.bids
+		end
+		
+		if #bids > bidrowcount then
+			mw_bids.slider:SetMinMaxValues(1, BIDLIST.GetCount() - itemrowcount + 1)
+		else
+			mw_bids.slider:Hide()
+		end
+		
+		
+		local z = 1 --current ui row
+		for i = startingindex, startingindex + bidrowcount - 1 do
+			bidinfo = bids[i]
+			if bidinfo then
+				--fill in this row's ui with data
+				if bidinfo.winner then
+					mw_bids.col1[z]:Show()
+				else
+					mw_bids.col1[z]:Hide()
+				end
+				mw_bids.col2[z]:SetText(bidinfo.name)
+				mw_bids.col2[z]:Show()
+				mw_bids.col2[z].itemindex = i
+
+				mw_bids.col3[z]:SetText(bidinfo.amount)
+				mw_bids.col3[z]:Show()
+				mw_bids.col3[z]:ClearFocus()
+				mw_bids.col3[z].itemindex = i
+
+				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bidinfo.name)
+				if dkpinfo then
+					mw_bids.col4[z]:SetText(dkpinfo.dkp)
+				else
+					mw_bids.col4[z]:SetText(0)
+				end
+				mw_bids.col4[z]:Show()
+				
+				--TODO: need to fill this column in...
+				mw_bids.col5[z]:Hide()
+			else
+				--hide this row's ui
+				mw_bids.col1[z]:Hide()
+				mw_bids.col2[z]:Hide()
+				mw_bids.col3[z]:Hide()
+				mw_bids.col4[z]:Hide()
+				mw_bids.col5[z]:Hide()
+			end
+			
+			z = z + 1
+		end
+	end
+	
+	local ui
+	
+	--Items
+	----Column Headers
+	----2 columns: Number, Link
+	mw_items.headers = {} --contains fontstrings
+	for i = 1,2 do
+		ui = fLib.GUI.CreateLabel(mw_items)
+		tinsert(mw_items.headers, ui)
+		ui:SetJustifyH('LEFT')
+		ui:SetHeight(12)
+	end
+	
+	mw_items.headers[1]:SetPoint('TOPLEFT',mw.titles[3], 'BOTTOMLEFT', 0, -padding)
+	mw_items.headers[2]:SetPoint('TOPLEFT', mw_items.headers[1], 'TOPRIGHT', 0,0)
+	
+	mw_items.headers[1]:SetText('Num')
+	mw_items.headers[1]:SetWidth(50)
+	mw_items.headers[2]:SetText('Item')
+	mw_items.headers[2]:SetWidth(200)
+	
+	ui = fLib.GUI.CreateSeparator(mw_items)
+	ui:SetWidth(mw_items:GetWidth()- 32)
+	ui:SetPoint('TOPLEFT', mw_items.headers[1], 'BOTTOMLEFT', 0,-2)
+	
+	----Column 1: Item Numbers
+	mw_items.col1 = {} --contains fontstrings
+	for i = 1, itemrowcount do
+		ui = fLib.GUI.CreateLabel(mw_items)
+		tinsert(mw_items.col1, ui)
+		ui:SetText('11')
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_items.headers[1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_items.headers[1], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_items.col1[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_items.col1[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+	end
+	
+	----Column 2: Link
+	mw_items.col2 = {} --contains buttons
+	for i = 1, itemrowcount do
+		ui = fLib.GUI.CreateActionButton(mw_items)
+		tinsert(mw_items.col2, ui)
+		
+		ui:GetFontString():SetAllPoints()
+		ui:GetFontString():SetJustifyH('LEFT')
+		ui:SetText('test')
+		ui:SetHeight(ui:GetTextHeight())
+		
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_items.headers[2], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_items.headers[2], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_items.col2[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_items.col2[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+		
+		local highlight = ui:CreateTexture(nil, "BACKGROUND")
+		--highlight:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+		highlight:SetTexture(0.96, 0.55, 0.73, .2)
+		ui.highlightspecial = highlight
+		highlight:SetBlendMode("ADD")
+		highlight:SetAllPoints(ui)
+		highlight:Hide()
+		
+		ui.itemindex= 0
+		ui:SetScript('OnEnter', function()
+			this.highlight:Show()
+			GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+			GameTooltip:SetPoint('TOPLEFT', mw, 'TOPRIGHT', 0, 0)
+			GameTooltip:SetHyperlink('item:'..BIDLIST.GetList()[this.itemindex].id)
+		end)
+		ui:SetScript('OnLeave', function()
+			this.highlight:Hide()
+			GameTooltip:FadeOut()
+		end)
+		ui:SetScript('OnClick', function()
+			mw_items.selecteditemindex = this.itemindex
+			mw:LoadItemRows(mw_items.startingindex)
+			mw:LoadBidRows(1)
+		end)
+	end
+	
+	----Scroll bar
+	local slider = CreateFrame('slider', nil, mw_items)
+	mw_items.slider = slider
+	slider:SetOrientation('VERTICAL')
+	slider:SetMinMaxValues(1, 1)
+	slider:SetValueStep(1)
+	slider:SetValue(1)
+	
+	slider:SetWidth(12)
+	--slider:SetHeight(itemrowcount * 12)
+	
+	slider:SetPoint('TOPRIGHT', -2, -40)
+	slider:SetPoint('BOTTOMRIGHT', -2, 0)
+	
+	slider:SetThumbTexture('Interface/Buttons/UI-SliderBar-Button-Vertical')
+	slider:SetBackdrop({
+		  bgFile='Interface/Buttons/UI-SliderBar-Background',
+		  edgeFile = 'Interface/Buttons/UI-SliderBar-Border',
+		  tile = true,
+		  tileSize = 8,
+		  edgeSize = 8,
+		  insets = {left = 3, right = 3, top = 3, bottom = 3}
+		  --insets are for the bgFile
+	})
+
+	slider:SetScript('OnValueChanged', function()
+		mw:LoadItemRows(this:GetValue())
 	end)
 	
-	--Add Loot button
-	--button = fLib.GUI.CreateActionButton('Add Loot', mw, x,-y, addon.Scan)
-	button = fLib.GUI.CreateActionButton(mw)
-	button:SetText('Add Loot')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() addon:Scan()  end)
-	button:SetPoint('TOPLEFT', mw, 'TOPLEFT', x, -y)
-
-	x = x + 80
-	
-	--Add Inv Loot button
-	--button = fLib.GUI.CreateActionButton('Add Inventory', mw, x,-y, nil)
-	button = fLib.GUI.CreateActionButton(mw)
-	button:SetText('Add Inventory')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function()   end)
-	button:SetPoint('TOPLEFT', mw, 'TOPLEFT', x, -y)
-	x = padding
-	y = y + button:GetHeight() + padding
-	
-	--Separator
-	local tex = fLib.GUI.CreateSeparator(mw, -y)
-	y = y + tex:GetHeight() + padding
-	
-	LISTDISPLAY.startx = x
-	LISTDISPLAY.starty = y
-	addon.RefreshGUI()
-	
-	--Clear Button
-	--button = fLib.GUI.CreateActionButton('Clear', mw, 0, 0, BIDLIST.Clear)
-	button = fLib.GUI.CreateActionButton(mw)
-	button:SetText('Clear')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() BIDLIST.Clear()  end)
-	button:SetPoint('BOTTOMLEFT', mw, 'BOTTOMLEFT', padding+8, padding+8)
-	y = button:GetHeight() + padding + 8
-	--Announce current winners button
-	--button = fLib.GUI.CreateActionButton('Announce Winners', mw, 0,0, nil)
-	button = fLib.GUI.CreateActionButton(mw)
-	button:SetText('Announce Winners')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function()  end)
-	button:SetPoint('BOTTOM', mw, 'BOTTOM', 0, y + padding)
-	
-end
-
-function addon.RefreshGUI()
-	fRaid:Debug('refreshing gui')
-	addon.GUI:SetWidth(minwidth)
-	addon.GUI:SetHeight(minheight)
-	
-	local row_idx = 1
-	local lstrow = 1
-	local bt
-	for idx,info in ipairs(BIDLIST.GetList()) do
-		bt = LISTDISPLAY.GetRow(row_idx)
-		print('setting text to ' .. info.number .. ' ' .. info.link .. 'x' .. info.count)
-		bt:SetText(info.number .. ' ' .. info.link .. 'x' .. info.count)
-		print('widtn adn height to ' .. bt:GetTextWidth() .. ',' .. bt:GetTextHeight())
-		bt:SetWidth(bt:GetTextWidth())
-		bt:SetHeight(bt:GetTextHeight())
-		
-		local width = bt:GetWidth() + padding + padding --its weird, bt:GetWidth() gives a larger value, after the first time...
-		fRaid:Debug('idx='..idx)--..'width='..width..',guidwidth='..addon.GUI:GetWidth())
-		if width > addon.GUI:GetWidth() then
-			addon.GUI:SetWidth(width)
-			--fRaid:Debug('new guiwidth='..addon.GUI:GetWidth())
-		end
-		
-		row_idx = row_idx + 1
-		
-		--add bids
-		print('this item has '..#info.bids..' bids')
-		sort(info.bids, bidcomparer)
-		for _,bid in ipairs(info.bids) do
-			bt = LISTDISPLAY.GetRow(row_idx)
-			local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
-			if dkpinfo then
-				bt:SetText('    '..bid.name .. ' bid ' .. bid.amount .. '(has ' .. dkpinfo.dkp .. ' dkp)')
-			else
-				bt:SetText('    '..bid.name .. ' bid ' .. bid.amount .. ' (has no dkp)')
+	mw_items:EnableMouseWheel(true)
+	mw_items:SetScript('OnMouseWheel', function(this,delta)
+		local current = this.slider:GetValue()
+		local min,max = this.slider:GetMinMaxValues()
+		if delta < 0 then
+			current = current + 3
+			if current > max then
+				current = max
 			end
-			bt:SetWidth(bt:GetTextWidth())
-			bt:SetHeight(bt:GetTextHeight())
-			bt:SetScript('OnClick', function() addon.ToggleWinner(info.number, bid.name) end)
-			row_idx = row_idx + 1
+			this.slider:SetValue(current)
+		elseif delta > 0 then
+			current = current - 3
+			if current < min then
+				current = min
+			end
+			this.slider:SetValue(current)
 		end
-		
-		lstrow = row_idx
-	end
+	end)
 	
-	LISTDISPLAY.HideRows(lstrow)
-	
-	--fRaid:Debug('listdisplay height='..(LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100)..',guiheight='..addon.GUI:GetHeight())
-	if LISTDISPLAY.GetHeight() + LISTDISPLAY.starty +100 > addon.GUI:GetHeight() then
-		addon.GUI:SetHeight(LISTDISPLAY.GetHeight() + minheight)
-		--fRaid:Debug('new guiheight='..addon.GUI:GetHeight())
-	end
-end
-
---row management
-function LISTDISPLAY.OnInitialize()
-	LISTDISPLAY.columns = {} --contains frames for the bottons to attach to
-	LISTDISPLAY.rows = {} --contains buttons
-	LISTDISPLAY.startx = 0
-	LISTDISPLAY.starty = 0
-	LISTDISPLAY.rowheight = 20
-	LISTDISPLAY.showingrows = 0
-end
-
---returns the column frame for column i
-function LISTDISPLAY.GetColumn(i)
-	if i < 1 then
-		return nil
-	end
-	local cframe = LISTDISPLAY.columns[i]
-	if not cframe then
-		--create cframe
-		cframe = CreateFrame('frame', nil, addon.GUI)
+	--Bids
+	----Column Headers
+	----5 columns: Check, Name, Bid, Total, Rank
+	mw_bids.headers = {} --contains fontstrings
+	for i = 1,5 do
+		ui = fLib.GUI.CreateLabel(mw_bids)
+		tinsert(mw_bids.headers, ui)
+		ui:SetJustifyH('LEFT')
 		if i == 1 then
-			cframe:SetPoint('TOPLEFT', startx, -starty)
+			ui:SetPoint('TOPLEFT', mw.titles[4], 'BOTTOMLEFT', 0, -padding)
 		else
-			local prevcframe = LISTDISPLAY.GetColumn(i-1)
-			cframe:SetPoint('TOPLEFT', prevcframe, 'TOPRIGHT', 0, 0)
+			ui:SetPoint('TOPLEFT', mw_bids.headers[i-1], 'TOPRIGHT', 0,0)
+		end
+		ui:SetHeight(12)
+	end
+	
+	mw_bids.headers[1]:SetText(' ')
+	mw_bids.headers[1]:SetWidth(15)
+	mw_bids.headers[2]:SetText('Name')
+	mw_bids.headers[2]:SetWidth(120)
+	mw_bids.headers[3]:SetText('Bid')
+	mw_bids.headers[3]:SetWidth(50)
+	mw_bids.headers[4]:SetText('Total')
+	mw_bids.headers[4]:SetWidth(50)
+	mw_bids.headers[5]:SetText('Rank')
+	mw_bids.headers[5]:SetWidth(115)
+	
+	tex = fLib.GUI.CreateSeparator(mw_bids)
+	tex:SetWidth(mw_bids:GetWidth()- 32)
+	tex:SetPoint('TOPLEFT', mw_bids.headers[1], 'BOTTOMLEFT', 0,-2)
+	
+	----Column 1: Checks
+	mw_bids.col1 = {} --contains buttons
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateCheck(mw_bids)
+		tinsert(mw_bids.col1, ui)
+		ui:SetWidth(12)
+		ui:SetHeight(12)		
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[1], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col1[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col1[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
 	end
-	return cframe
-end
+	
+	----Column 2: Name
+	mw_bids.col2 = {} --contains buttons
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateActionButton(mw_bids)
+		tinsert(mw_bids.col2, ui)
+		ui:GetFontString():SetAllPoints()
+		ui:GetFontString():SetJustifyH('LEFT')
+		ui:SetText('test')
+		ui:SetHeight(ui:GetTextHeight())
 
-function LISTDISPLAY.GetRow(i)
-	if i < 1 then
-		return nil
-	end
-	local row = LISTDISPLAY.rows[i]
-	if not row then
-		--create row
-		row = {}
-		if i > 1 then
-			--check previous row exists
-			local prevrow = LISTDISPLAY.GetRow(i-1)
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[2], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[2], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col2[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col2[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
-		LISTDISPLAY.rows[i] = row
-	end
-	return row
-end
-
-function LISTDISPLAY.SetRow(i, items)
-	if i < 1 then
-		return
-	end
-	
-	local row = LISTDISPLAY.GetRow(i)
-	
-	
-	
-	local cframe, cell, prevcell
-	--for each item, fill in the cell
-	--if the cell doens't exist yet, create it
-	for cnum = 1, #items do
-		cell = row[cnum]
-		if not cell then
-			--create it
-			cframe = LISTDISPLAY.GetColumn(cnum)
-			cell = CreateFrame('button', nil, cframe)
-			cell:SetFontString(cell:CreateFontString(nil, 'OVERLAY', 'GameFontNormal'))
-			if i == 1 then
-				--attach it to cframe
-				cell:SetPoint('TOPLEFT', cframe, 'TOPLEFT', 0, 0)
-				cell:SetPoint('TOPRIGHT', cframe, 'TOPRIGHT', 0, 0)
-			else
-				--attach it to previous row's cell
-				prevcell = prevrow[cnum]
-				cell:SetPoint('TOPLEFT', prevcell, 'BOTTOMLEFT', 0, 0)
-				cell:SetPoint('TOPRIGHT', prevcell, 'BOTTOMRIGHT', 0, 0)
+		
+		ui.itemindex= 0
+		ui:SetScript('OnClick', function()
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bids = iteminfo.bids
+				if bids[this.itemindex].winner then
+					bids[this.itemindex].winner = false
+				else
+					local winnercount = 0
+					for idx,bid in ipairs(bids) do
+						if bid.winner then
+							winnercount = winnercount + 1
+						end
+					end
+					if winnercount >= iteminfo.count then
+						fRaid:Print('Cannot set more than ' .. iteminfo.count .. ' winners for ' .. iteminfo.link)
+					else
+						bids[this.itemindex].winner = true
+					end
+				end					
+				mw:LoadBidRows(mw_bids.startingindex)
 			end
-		end
-		--fill in cell
-		--fix column's width
+		end)
 	end
-end
-
---items - list of values in a row
-function LISTDISPLAY.SetRow(items, row_idx)
-	--first column contains checkbox
-	local c_idx = 1
-	local cframe = LISTDISPLAY.GetColumn(c_idx)
-	local check = LISTDISPLAY.rows[1]
-	if not check then
-		check =	fLib.GUI.CreateCheck(cframe, 0, -(row_idx*LISTDISPLAY.rowheight))
-		LISTDISPLAY.rows[1] = check
-	end
-	c_idx = c_idx + 1
 	
-	local bt
-	for _,val in ipairs(items) do
-		cframe = LISTDISPLAY.GetColumn(c_idx)
-		bt = f
-		c_idx = c_idx + 1
+	----Column 3: Amount
+	mw_bids.col3 = {} --contains editboxes
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateEditBox2(mw_bids, 'dkp')
+		tinsert(mw_bids.col3, ui)
+		
+		ui:SetWidth(100)
+		ui:SetNumeric(true)			
+		
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[3], 'BOTTOMLEFT', 0, -2)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[3], 'BOTTOMRIGHT', 0, -2)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col3[i-1], 'BOTTOMLEFT', 0, -2)
+			ui:SetPoint('TOPRIGHT', mw_bids.col3[i-1], 'BOTTOMRIGHT', 0, -2)
+		end
+		
+		ui.itemindex= 0
+		ui:SetScript('OnEnterPressed', function()
+			--save new value
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bid = iteminfo.bids[this.itemindex]
+				bid.dkp = this:GetNumber()
+				this:SetNumber(bid.dkp)
+			end
+			this:ClearFocus()
+		end)
+		ui:SetScript('OnEscapePressed', function()
+			--restore old value
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bid = iteminfo.bids[this.itemindex]
+				this:SetNumber(bid.dkp)
+			end
+			this:ClearFocus()
+		end)
 	end
+	
+	----Column 4: Total
+	mw_bids.col4 = {} --contains fontstrings
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateLabel(mw_bids)
+		tinsert(mw_bids.col4, ui)
+		ui:SetText('11')
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[4], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[4], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col4[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col4[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+	end
+	
+	----Column 5: Rank
+	mw_bids.col5 = {} --contains fontstrings
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateLabel(mw_bids)
+		tinsert(mw_bids.col5, ui)
+		ui:SetText('11')
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[5], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[5], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col5[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col5[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+	end
+
+	
+	----Scroll bar
+	slider = CreateFrame('slider', nil, mw_bids)
+	mw_bids.slider = slider
+	slider:SetOrientation('VERTICAL')
+	slider:SetMinMaxValues(1, 1)
+	slider:SetValueStep(1)
+	slider:SetValue(1)
+	
+	slider:SetWidth(12)
+	--slider:SetHeight(bidrowcount * 12)
+	
+	slider:SetPoint('TOPRIGHT', -2, -40)
+	slider:SetPoint('BOTTOMRIGHT', -2, 0)
+	
+	slider:SetThumbTexture('Interface/Buttons/UI-SliderBar-Button-Vertical')
+	slider:SetBackdrop({
+		  bgFile='Interface/Buttons/UI-SliderBar-Background',
+		  edgeFile = 'Interface/Buttons/UI-SliderBar-Border',
+		  tile = true,
+		  tileSize = 8,
+		  edgeSize = 8,
+		  insets = {left = 3, right = 3, top = 3, bottom = 3}
+		  --insets are for the bgFile
+	})
+
+	slider:SetScript('OnValueChanged', function()
+		mw:LoadBidRows(this:GetValue())
+	end)
+	
+	mw_bids:EnableMouseWheel(true)
+	mw_bids:SetScript('OnMouseWheel', function(this,delta)
+		local current = this.slider:GetValue()
+		local min,max = this.slider:GetMinMaxValues()
+		if delta < 0 then
+			current = current + 3
+			if current > max then
+				current = max
+			end
+			this.slider:SetValue(current)
+		elseif delta > 0 then
+			current = current - 3
+			if current < min then
+				current = min
+			end
+			this.slider:SetValue(current)
+		end
+	end)
+	
+	--load initial rows
+	mw:LoadItemRows(1)
+	mw:LoadBidRows(1)
 end
 
-function LISTDISPLAY.GetRow(i)
-	local bt = LISTDISPLAY.rows[i]
-	if not bt then
-		fRaid:Debug('making new label')
-		--bt = fLib.GUI.CreateLabel(addon.GUI, LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)), '')
-		--bt = fLib.GUI.CreateActionButton('', addon.GUI, LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)), nil)
-		bt = fLib.GUI.CreateActionButton(addon.GUI)
-		bt:SetPoint('TOPLEFT', addon.GUI, 'TOPLEFT', LISTDISPLAY.startx, -LISTDISPLAY.starty-(LISTDISPLAY.rowheight * (i-1)))
-		LISTDISPLAY.rows[i] = bt
+function fRaidBid.ShowGUI()
+	if not addon.GUI then
+		addon.CreateGUI()
 	end
-	bt:Show()
-	if i > LISTDISPLAY.showingrows then
-		LISTDISPLAY.showingrows = i
-	end
-	return bt
+	addon.GUI:Show()
 end
-
-function LISTDISPLAY.HideRows(i)
-	LISTDISPLAY.showingrows = i-1
-	for idx = i, #LISTDISPLAY.rows do
-		fRaid:Debug('hiding '..idx)
-		LISTDISPLAY.rows[idx]:Hide()
+function fRaidBid.HideGUI()
+	if addon.GUI then
+		addon.GUI:Hide()
 	end
 end
-
-function LISTDISPLAY.GetHeight()
-	return LISTDISPLAY.showingrows * LISTDISPLAY.rowheight
+function fRaidBid.ToggleGUI()
+	if not addon.GUI then
+		addon.CreateGUI()
+	end
+	addon.GUI:Toggle()
+end
+function fRaidBid.RefreshGUI()
+	if addon.GUI then
+		if addon.GUI:IsVisible() then
+			addon.GUI:Refresh()
+			addon.GUI.needRefresh = false
+		else
+			addon.GUI.needRefresh = true
+		end
+	end
 end

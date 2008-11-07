@@ -2,6 +2,7 @@ fRaidLoot = {}
 local addon = fRaidLoot
 local NAME = 'fRaidLoot'
 local db = {}
+local needRefresh = true
 
 function addon:OnInitialize()
 	db = fRaid.db.global.fRaidLoot
@@ -50,6 +51,7 @@ function fRaidLoot.Add(arg)
 		mindkp = 0,
 		maxdkp = 0,
 	})
+	fRaidLoot.Refresh()
 end
 
 function fRaidLoot.GetInfo(id)
@@ -116,7 +118,6 @@ local function lootcomparer(a, b)
 	end
 end
 
-
 function fRaidLoot.Sort(colnum)
 	if sortkeeper[colnum].issorted then
 		sortkeeper[colnum].asc = not sortkeeper[colnum].asc
@@ -131,7 +132,7 @@ function fRaidLoot.Sort(colnum)
 	end
 	
 	--refresh gui...
-	fRaidLoot.GUI:Refresh()
+	fRaidLoot.Refresh()
 end
 
 local rowcount = 20
@@ -147,7 +148,6 @@ function fRaidLoot.View()
 
 		mw:SetWidth(375)
 		mw:SetHeight(400)
-		
 		mw:SetPoint('CENTER', -200, 100)
 		
 		--Title
@@ -165,7 +165,6 @@ function fRaidLoot.View()
 			mw:Toggle()
 		end)
 		button:SetPoint('BOTTOMRIGHT', mw, 'BOTTOMRIGHT', -padding-8, padding+8)
-		--button:SetPoint('BOTTOM', 0, padding)
 		
 		--Some functions for mainwindow
 		function mw:SaveLocation()
@@ -176,6 +175,7 @@ function fRaidLoot.View()
 		mw.currentrow = 1
 		function mw:LoadRows(j)
 			mw.currentrow = j
+			mw.slider:SetMinMaxValues(1, #db.items - rowcount + 1)
 			local iteminfo, text, min, max
 			local z = 1
 			for i = j, j + rowcount -1 do
@@ -216,10 +216,12 @@ function fRaidLoot.View()
 			this:SaveLocation()
 		end)
 		
+		--Separators
 		mw.separators= {}
 		local tex
 		
 		--Column Headers
+		--3 columns: Item, MinDKP, MaxDKP
 		mw.headers= {}
 		local b
 		for i = 1, 3 do
@@ -249,6 +251,7 @@ function fRaidLoot.View()
 		tex:SetPoint('TOPLEFT', mw.headers[1], 'BOTTOMLEFT', 0,-2)
 		tinsert(mw.separators, tex)
 		
+		--Column 1: Item Links
 		mw.buttons= {}
 		for i = 1, rowcount do
 			b = fLib.GUI.CreateActionButton(mw)
@@ -283,6 +286,7 @@ function fRaidLoot.View()
 			end)
 		end
 		
+		--Column 2: Min DKP
 		mw.editboxes1= {}
 		local eb
 		for i = 1, rowcount do
@@ -315,6 +319,7 @@ function fRaidLoot.View()
 			end)
 		end
 		
+		--Column 3: Max DKP
 		mw.editboxes2= {}
 		for i = 1, rowcount do
 			eb = fLib.GUI.CreateEditBox2(mw, 'max')
@@ -345,8 +350,7 @@ function fRaidLoot.View()
 			end)
 		end
 		
-
-		
+		--Scroll bar
 		local slider = CreateFrame('slider', nil, mw)
 		mw.slider= slider
 		slider:SetOrientation('VERTICAL')
@@ -393,8 +397,19 @@ function fRaidLoot.View()
 				this.slider:SetValue(current)
 			end
 		end)
-
+		
+		--load initial rows
 		mw:LoadRows(1)
 	end
 	addon.GUI:Toggle()
+end
+function fRaidLoot.Refresh()
+	if addon.GUI then
+		if addon.GUI:IsVisible() then
+			addon.GUI:Refresh()
+			needRefresh = false
+			return
+		end
+	end
+	needRefresh = true
 end

@@ -209,12 +209,10 @@ end
 
 function addon:LOOT_OPENED(...)
 	fRaidLoot.Scan(...)
-	fRaidLoot.Test(...)
 	fRaidBid.LOOT_OPENED(...)
 end
 
 function addon:LOOT_CLOSED(...)
-	fRaidLoot.Test(...)
 	fRaidBid.LOOT_CLOSED(...)
 end
 
@@ -275,11 +273,12 @@ function addon:CreateGUI()
 		this:SaveLocation()
 	end)
 	
+	--Buttons
 	button = fLib.GUI.CreateActionButton(mw)
 	button:SetText('Open Bid Window')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() fRaidBid.GUI:Toggle()  end)
+	button:SetScript('OnClick', function() fRaidBid:ToggleGUI()  end)
 	button:SetPoint('TOPLEFT', x, -y)
 
 	x = x + 120
