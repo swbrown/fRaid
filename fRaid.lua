@@ -238,6 +238,12 @@ function addon:CreateGUI()
 	--Main Window
 	addon.GUI = fLib.GUI.CreateEmptyFrame(2, NAME .. '_MW')
 	local mw = addon.GUI
+	--mw:RegisterAllEvents()
+	--mw:SetScript('OnEvent', function(this, event, ...)
+	--	if event ~= 'CHAT_MSG_ADDON' then
+	--		print(event .. '>>' .. strjoin(',', unpack({...})))
+	--	end
+	--end)
 	
 	mw:SetWidth(300)
 	mw:SetHeight(150)

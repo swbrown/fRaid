@@ -75,7 +75,7 @@ function BIDLIST.GetBidInfo(number,playername)
 	end
 end
 
---accepts a string or a list of strings
+--accepts an itemlink or a list of itemlinks
 function BIDLIST.AddItem(data)
 	local itemlink, itemid
 	local matched
@@ -106,6 +106,7 @@ function BIDLIST.AddItem(data)
 				id = itemid,
 				link = itemlink,
 				count = 1,
+				type = 'loot', --or 'inventory'
 				bids = {}
 			})
 			db.bidnumber = db.bidnumber + 1
@@ -164,23 +165,51 @@ end
 function BIDLIST.AddBid(playername, number, bidamount)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
+			local alreadybid = false
 			--check if they already bid
 			for idx2,bid in ipairs(info.bids) do
 				if bid.name == playername then
 					bid.amount = bidamount
-					--refresh gui
-					addon.RefreshGUI()
-					return
+					alreadybid = true
+					break
 				end
 			end
-			--add new bid
-			tinsert(info.bids, {
-				name = playername,
-				amount = tonumber(bidamount),
-				winner = false,
-			})
-			--refresh gui
+			
+			if not alreadybid then
+				--add new bid
+				tinsert(info.bids, {
+					name = playername,
+					amount = tonumber(bidamount),
+					winner = false,
+					actual = 0,
+					ismanualedit = false,
+				})
+			end
+			
+			--sort bids
+			print('sorting')
 			sort(info.bids, bidcomparer)
+			
+			--fill in actual bids
+			--based on our current dkp system where people win for lower bid + 1
+			local bid, prevbid
+			for i = #info.bids, 1, -1 do
+				bid = info.bids[i]
+				if not bid.ismanualedit then
+					print('is not manual edit')
+					if prevbid then
+						print('has prevbid ' .. prevbid.amount)
+						--lower bid + 1
+						bid.actual = prevbid.amount + 1
+					else
+						--TODO: find out min bid
+						bid.actual = 0
+					end
+				end
+				prevbid = bid
+			end
+			
+			--refresh gui
 			addon.RefreshGUI()
 			return
 		end
@@ -384,7 +413,6 @@ function fRaidBid.CreateGUI()
 	mw.subframes = {}
 	for i = 1, 3 do
 		tinsert(mw.subframes, fLib.GUI.CreateClearFrame(mw))
-		--mw.subframes[i]:SetFrameLevel(0)
 		mw.subframes[i]:RegisterForDrag('LeftButton')
 		mw.subframes[i]:SetScript('OnDragStart', function(this, button)
 			mw:StartMoving()
@@ -394,9 +422,9 @@ function fRaidBid.CreateGUI()
 		end)
 	end
 	
-	mw:SetWidth(400)
+	mw:SetWidth(450)
 	mw:SetHeight(350)
-	mw:SetPoint('CENTER', -200, 100)
+	mw:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', db.gui.x, db.gui.y)
 	
 	local mw_menu = mw.subframes[1]
 	mw_menu:SetWidth(100)
@@ -404,16 +432,16 @@ function fRaidBid.CreateGUI()
 	mw_menu:SetPoint('TOPLEFT', mw, 'TOPLEFT', 0, -24)
 	
 	local mw_items = mw.subframes[2]
-	mw_items:SetWidth(300)
+	mw_items:SetWidth(350)
 	mw_items:SetHeight(125)
 	mw_items:SetPoint('TOPLEFT', mw_menu, 'TOPRIGHT', 0,0)
 	
 	local mw_bids = mw.subframes[3]
-	mw_bids:SetWidth(300)
+	mw_bids:SetWidth(350)
 	mw_bids:SetHeight(150)
 	mw_bids:SetPoint('TOP', mw_items, 'BOTTOM', 0,0)
 
-	--4 Title: fRaidBid, Items, Bids
+	--4 Titles: fRaidBid, Announce, Items, Bids
 	mw.titles = {}
 	for i = 1, 4 do
 		tinsert(mw.titles, fLib.GUI.CreateLabel(mw))
@@ -498,6 +526,15 @@ function fRaidBid.CreateGUI()
 	end)
 	mw:SetScript('OnHide', function()
 		this:SaveLocation()
+	end)
+	
+	--Scripts for mw_items
+	mw_items:SetScript('OnReceiveDrag', function()
+		local infoType, id, link = GetCursorInfo()
+		if infoType == 'item' then
+			BIDLIST.AddItem(link)
+			ClearCursor()
+		end
 	end)
 	
 	--Some functions for mainwindow
@@ -587,8 +624,12 @@ function fRaidBid.CreateGUI()
 
 				mw_bids.col3[z]:SetText(bidinfo.amount)
 				mw_bids.col3[z]:Show()
+				--[[
+				mw_bids.col3[z]:SetNumber(bidinfo.amount)
+				mw_bids.col3[z]:Show()
 				mw_bids.col3[z]:ClearFocus()
 				mw_bids.col3[z].itemindex = i
+				--]]
 
 				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bidinfo.name)
 				if dkpinfo then
@@ -599,7 +640,12 @@ function fRaidBid.CreateGUI()
 				mw_bids.col4[z]:Show()
 				
 				--TODO: need to fill this column in...
-				mw_bids.col5[z]:Hide()
+				mw_bids.col5[z]:Show()
+				
+				mw_bids.col6[z]:SetNumber(tonumber(bidinfo.actual))
+				mw_bids.col6[z]:Show()
+				mw_bids.col6[z]:ClearFocus()
+				mw_bids.col6[z].itemindex = i
 			else
 				--hide this row's ui
 				mw_bids.col1[z]:Hide()
@@ -607,6 +653,7 @@ function fRaidBid.CreateGUI()
 				mw_bids.col3[z]:Hide()
 				mw_bids.col4[z]:Hide()
 				mw_bids.col5[z]:Hide()
+				mw_bids.col6[z]:Hide()
 			end
 			
 			z = z + 1
@@ -707,7 +754,6 @@ function fRaidBid.CreateGUI()
 	slider:SetValue(1)
 	
 	slider:SetWidth(12)
-	--slider:SetHeight(itemrowcount * 12)
 	
 	slider:SetPoint('TOPRIGHT', -2, -40)
 	slider:SetPoint('BOTTOMRIGHT', -2, 0)
@@ -748,9 +794,9 @@ function fRaidBid.CreateGUI()
 	
 	--Bids
 	----Column Headers
-	----5 columns: Check, Name, Bid, Total, Rank
+	----6 columns: Check, Name, Bid, Total, Rank, Actual
 	mw_bids.headers = {} --contains fontstrings
-	for i = 1,5 do
+	for i = 1,6 do
 		ui = fLib.GUI.CreateLabel(mw_bids)
 		tinsert(mw_bids.headers, ui)
 		ui:SetJustifyH('LEFT')
@@ -765,13 +811,15 @@ function fRaidBid.CreateGUI()
 	mw_bids.headers[1]:SetText(' ')
 	mw_bids.headers[1]:SetWidth(15)
 	mw_bids.headers[2]:SetText('Name')
-	mw_bids.headers[2]:SetWidth(120)
+	mw_bids.headers[2]:SetWidth(100)
 	mw_bids.headers[3]:SetText('Bid')
 	mw_bids.headers[3]:SetWidth(50)
 	mw_bids.headers[4]:SetText('Total')
 	mw_bids.headers[4]:SetWidth(50)
 	mw_bids.headers[5]:SetText('Rank')
-	mw_bids.headers[5]:SetWidth(115)
+	mw_bids.headers[5]:SetWidth(50)
+	mw_bids.headers[6]:SetText('Actual')
+	mw_bids.headers[6]:SetWidth(50)
 	
 	tex = fLib.GUI.CreateSeparator(mw_bids)
 	tex:SetWidth(mw_bids:GetWidth()- 32)
@@ -838,6 +886,21 @@ function fRaidBid.CreateGUI()
 	end
 	
 	----Column 3: Amount
+	mw_bids.col3 = {} --contains fontstrings
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateLabel(mw_bids)
+		tinsert(mw_bids.col3, ui)
+		ui:SetText('11')
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[3], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[3], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col3[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col3[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+	end
+	
+	--[[
 	mw_bids.col3 = {} --contains editboxes
 	for i = 1, bidrowcount do
 		ui = fLib.GUI.CreateEditBox2(mw_bids, 'dkp')
@@ -862,7 +925,7 @@ function fRaidBid.CreateGUI()
 			if iteminfo then
 				local bid = iteminfo.bids[this.itemindex]
 				bid.dkp = this:GetNumber()
-				this:SetNumber(bid.dkp)
+				this:SetNumber(tonumber(bid.dkp))
 			end
 			this:ClearFocus()
 		end)
@@ -872,11 +935,12 @@ function fRaidBid.CreateGUI()
 			local iteminfo = items[mw_items.selecteditemindex]
 			if iteminfo then
 				local bid = iteminfo.bids[this.itemindex]
-				this:SetNumber(bid.dkp)
+				this:SetNumber(tonumber(bid.dkp))
 			end
 			this:ClearFocus()
 		end)
 	end
+	--]]
 	
 	----Column 4: Total
 	mw_bids.col4 = {} --contains fontstrings
@@ -906,6 +970,47 @@ function fRaidBid.CreateGUI()
 			ui:SetPoint('TOPLEFT', mw_bids.col5[i-1], 'BOTTOMLEFT', 0, -4)
 			ui:SetPoint('TOPRIGHT', mw_bids.col5[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
+	end
+	
+	----Column 6: Amount
+	mw_bids.col6 = {} --contains editboxes
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateEditBox2(mw_bids, 'dkp')
+		tinsert(mw_bids.col6, ui)
+		
+		ui:SetWidth(100)
+		ui:SetNumeric(true)			
+		
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[6], 'BOTTOMLEFT', 0, -2)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[6], 'BOTTOMRIGHT', 0, -2)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col6[i-1], 'BOTTOMLEFT', 0, -2)
+			ui:SetPoint('TOPRIGHT', mw_bids.col6[i-1], 'BOTTOMRIGHT', 0, -2)
+		end
+		
+		ui.itemindex= 0
+		ui:SetScript('OnEnterPressed', function()
+			--save new value
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bid = iteminfo.bids[this.itemindex]
+				bid.actual = this:GetNumber()
+				this:SetNumber(bid.actual)
+			end
+			this:ClearFocus()
+		end)
+		ui:SetScript('OnEscapePressed', function()
+			--restore old value
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bid = iteminfo.bids[this.itemindex]
+				this:SetNumber(tonumber(bid.actual))
+			end
+			this:ClearFocus()
+		end)
 	end
 
 	
