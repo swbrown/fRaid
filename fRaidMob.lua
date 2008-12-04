@@ -41,6 +41,6 @@ end
 function fRaidMob.Scan(eventName, _, event, _, _, _, _, mob)
 	if event ~= "UNIT_DIED" then return end
 	if mob then
-		print(mob..' killed')
+		--print(mob..' killed')
 	end
 end

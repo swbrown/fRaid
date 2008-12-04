@@ -67,6 +67,7 @@ function BIDLIST.GetItemInfoByItemId(itemid)
 end
 
 function BIDLIST.GetBidInfo(number,playername)
+	playername = strlower(playername)
 	local iteminfo = BIDLIST.GetItemInfoByNumber(number)
 	for idx,bidinfo in ipairs(iteminfo.bids) do
 		if bidinfo.name == playername then
@@ -102,12 +103,14 @@ function BIDLIST.AddItem(data)
 		if not matched then
 			--add new itemlink
 			tinsert(db.bidlist, {
-				number = db.bidnumber,
-				id = itemid,
-				link = itemlink,
-				count = 1,
+				number = db.bidnumber, --number that tracks the numbered biditems
+				id = itemid, --id of the biditem
+				link = itemlink, --link to the biditem
+				count = 1, --how many there are available for bid (could be more than 1 like tokens, etc)
+				countawarded = 0, --how many biditems have been awarded
 				type = 'loot', --or 'inventory'
-				bids = {}
+				isopen = true, --whether or not this biditem is still open for bidding/winning?
+				bids = {} --list of bidinfos
 			})
 			db.bidnumber = db.bidnumber + 1
 		end
@@ -163,6 +166,7 @@ local function bidcomparer(a, b)
 end
 
 function BIDLIST.AddBid(playername, number, bidamount)
+	playername = strlower(playername)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
 			local alreadybid = false
@@ -179,35 +183,19 @@ function BIDLIST.AddBid(playername, number, bidamount)
 				--add new bid
 				tinsert(info.bids, {
 					name = playername,
-					amount = tonumber(bidamount),
-					winner = false,
-					actual = 0,
-					ismanualedit = false,
+					amount = tonumber(bidamount), --how much they bid
+					winner = false, --whether or not they are marked as winning by you
+					awarded = false, --whether or not they were awarded the loot
+					actual = 0, --how much they will actually be charged if they win
+					ismanualedit = false, --determines if actual amount is calculated or left alone
 				})
+				local lootinfo = fRaidLoot.GetInfo(info.id)
+				bid.actual = lootinfo.mindkp
 			end
 			
 			--sort bids
 			print('sorting')
 			sort(info.bids, bidcomparer)
-			
-			--fill in actual bids
-			--based on our current dkp system where people win for lower bid + 1
-			local bid, prevbid
-			for i = #info.bids, 1, -1 do
-				bid = info.bids[i]
-				if not bid.ismanualedit then
-					print('is not manual edit')
-					if prevbid then
-						print('has prevbid ' .. prevbid.amount)
-						--lower bid + 1
-						bid.actual = prevbid.amount + 1
-					else
-						--TODO: find out min bid
-						bid.actual = 0
-					end
-				end
-				prevbid = bid
-			end
 			
 			--refresh gui
 			addon.RefreshGUI()
@@ -218,6 +206,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 end
 
 function BIDLIST.RemoveBid(playername, number)
+	playername = strlower(playername)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
 			for idx2,bid in ipairs(info.bids) do
@@ -309,7 +298,7 @@ function addon.AddBid(playername, number, cmd)
 			if lootinfo then
 				amount = tonumber(lootinfo.mindkp)
 			else
-				amount = 0
+				amount = 50
 			end
 		elseif cmd == 'cancel' then
 			BIDLIST.RemoveBid(playername, number)
@@ -334,6 +323,7 @@ function addon.AnnounceWinningBids()
 		for idx2,bidinfo in ipairs(iteminfo.bids) do
 			if bidinfo.winner then
 				SendChatMessage(bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
+				print(bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
 			end
 		end
 	end
@@ -363,7 +353,7 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 		_, endi = strfind(msg, '|h|r')
 		name = MYNAME
 		link = strsub(msg, starti, endi)
-		print('i sense that you have looted ' .. link)
+		--print('i sense that you have looted ' .. link)
 	end
 	
 	local starti, endi = strfind(msg, ' receives loot: ')
@@ -372,21 +362,29 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 		starti = endi + 1
 		_, endi = strfind(msg, '|h|r')
 		link = strsub(msg, starti, endi)
-		print('i sense that ' .. name .. ' has looted ' .. link)
 	end
 	
 	if name and link then
-		print('name and link exist')
 		local itemid = fRaid:ExtractItemId(link)
 		local iteminfo = BIDLIST.GetItemInfoByItemId(itemid)
-		if iteminfo then --the item is up for bid
-			print('iteminfo exists')
+		if iteminfo and iteminfo.isopen then --the item is up for bid and open
 			local bidinfo = BIDLIST.GetBidInfo(iteminfo.number, name)
-			if bidinfo then	--player has bid on that item
-				--open a window and confirm charging dkp
+			if bidinfo and not bidinfo.awarded then	--player has bid on that item
+				--charge dkp
+				fRaid:Print('Charging ' .. bidinfo.name .. ' ' .. bidinfo.actual .. ' dkp for ' .. iteminfo.link)
+				fDKP:AddDKP(bidinfo.name, -bidinfo.actual)
+				bidinfo.awarded = true
+				iteminfo.countawarded = iteminfo.countawarded + 1
+				--close biditem
+				if iteminfo.countawarded >= iteminfo.count then
+					iteminfo.isopen = false
+				end
 				
+				--TODO: open a window and confirm charging dkp
+				addon.RefreshGUI()
+			else --TODO: if nobody has a bid on the item open popup requesting dkp to charge
 			end
-			print('not attemptin to remove item')
+			--print('not attemptin to remove item')
 			--BIDLIST.RemoveItem(link)
 		end
 	end
@@ -529,6 +527,7 @@ function fRaidBid.CreateGUI()
 	end)
 	
 	--Scripts for mw_items
+	--drag and drop
 	mw_items:SetScript('OnReceiveDrag', function()
 		local infoType, id, link = GetCursorInfo()
 		if infoType == 'item' then
@@ -543,7 +542,7 @@ function fRaidBid.CreateGUI()
 		db.gui.y = self:GetTop()
 	end
 	
-	mw_items.selecteditemindex = 1 --users click on an item to select which bids are showing in mw_bids
+	mw_items.selecteditemindex = 1 --click on an item to select which bids are showing in mw_bids
 	mw_items.startingindex = 1 --for scrolling, the index of the first item showing in mw_items
 	mw_bids.startingindex = 1 --for scrolling, the index of the first bid showing in mw_bids
 	
@@ -621,6 +620,11 @@ function fRaidBid.CreateGUI()
 				mw_bids.col2[z]:SetText(bidinfo.name)
 				mw_bids.col2[z]:Show()
 				mw_bids.col2[z].itemindex = i
+				if bidinfo.awarded then
+					mw_bids.col2[z].highlightspecial:Show()
+				else
+					mw_bids.col2[z].highlightspecial:Hide()
+				end
 
 				mw_bids.col3[z]:SetText(bidinfo.amount)
 				mw_bids.col3[z]:Show()
@@ -720,7 +724,6 @@ function fRaidBid.CreateGUI()
 		end
 		
 		local highlight = ui:CreateTexture(nil, "BACKGROUND")
-		--highlight:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
 		highlight:SetTexture(0.96, 0.55, 0.73, .2)
 		ui.highlightspecial = highlight
 		highlight:SetBlendMode("ADD")
@@ -859,6 +862,13 @@ function fRaidBid.CreateGUI()
 			ui:SetPoint('TOPRIGHT', mw_bids.col2[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
 		
+		local highlight = ui:CreateTexture(nil, "BACKGROUND")
+		highlight:SetTexture(0.96, 0.55, 0.73, .2)
+		ui.highlightspecial = highlight
+		highlight:SetBlendMode("ADD")
+		highlight:SetAllPoints(ui)
+		highlight:Hide()
+		
 		ui.itemindex= 0
 		ui:SetScript('OnClick', function()
 			local items = BIDLIST.GetList()
@@ -972,7 +982,7 @@ function fRaidBid.CreateGUI()
 		end
 	end
 	
-	----Column 6: Amount
+	----Column 6: Actual
 	mw_bids.col6 = {} --contains editboxes
 	for i = 1, bidrowcount do
 		ui = fLib.GUI.CreateEditBox2(mw_bids, 'dkp')
@@ -997,7 +1007,9 @@ function fRaidBid.CreateGUI()
 			if iteminfo then
 				local bid = iteminfo.bids[this.itemindex]
 				bid.actual = this:GetNumber()
-				this:SetNumber(bid.actual)
+				bid.ismanualedit = true
+				--this:SetNumber(bid.actual)
+				addon.RefreshGUI()
 			end
 			this:ClearFocus()
 		end)
@@ -1010,6 +1022,16 @@ function fRaidBid.CreateGUI()
 				this:SetNumber(tonumber(bid.actual))
 			end
 			this:ClearFocus()
+		end)
+		ui:SetScript('OnEditFocusGained', function()
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bid = iteminfo.bids[this.itemindex]
+				if bid.awarded then
+					this:ClearFocus()
+				end
+			end
 		end)
 	end
 
