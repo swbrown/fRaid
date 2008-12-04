@@ -305,6 +305,27 @@ function addon:CreateGUI()
 	button:SetScript('OnClick', function() fRaidLoot:View()  end)
 	button:SetPoint('TOPLEFT', x, -y)
 	
+	y = y + button:GetHeight() + padding
+	
+	fs = fLib.GUI.CreateLabel(mw)
+	fs:SetText('Award dkp to raid')
+	fs:SetPoint('TOPLEFT', x, -y)
+	
+	x = x + fs:GetWidth() + padding
+	
+	local eb = fLib.GUI.CreateEditBox(mw, '#')
+	eb:SetPoint('TOPLEFT', x, -y)
+	eb:SetWidth(60)
+	eb:SetNumeric(true)
+	eb:SetNumber(0)
+	eb:SetScript('OnEnterPressed', function() 
+		if eb:GetNumber() > 0 then
+			fDKP:AddDKPToRaid(eb:GetNumber())
+		end
+		this:ClearFocus()
+		eb:SetNumber(0)
+	end)
+	
 	--Separator
 	local tex = fLib.GUI.CreateSeparator(mw, -y)
 	y = y + tex:GetHeight() + padding

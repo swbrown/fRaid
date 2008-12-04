@@ -181,16 +181,19 @@ function BIDLIST.AddBid(playername, number, bidamount)
 			
 			if not alreadybid then
 				--add new bid
+				local lootinfo = fRaidLoot.GetInfo(info.id)
+				local x = 0
+				if lootinfo then
+					x = lootinfo.mindkp
+				end
 				tinsert(info.bids, {
 					name = playername,
 					amount = tonumber(bidamount), --how much they bid
 					winner = false, --whether or not they are marked as winning by you
 					awarded = false, --whether or not they were awarded the loot
-					actual = 0, --how much they will actually be charged if they win
+					actual = x, --how much they will actually be charged if they win
 					ismanualedit = false, --determines if actual amount is calculated or left alone
 				})
-				local lootinfo = fRaidLoot.GetInfo(info.id)
-				bid.actual = lootinfo.mindkp
 			end
 			
 			--sort bids
@@ -298,12 +301,36 @@ function addon.AddBid(playername, number, cmd)
 			if lootinfo then
 				amount = tonumber(lootinfo.mindkp)
 			else
-				amount = 50
+				amount = 0
 			end
 		elseif cmd == 'cancel' then
 			BIDLIST.RemoveBid(playername, number)
 			fRaid:Whisper(playername, 'Your bid on ' .. iteminfo.link..' has been removed')
 			return
+		end
+	end
+	
+	amount = ceil(amount)
+	
+	if amount < 0 then
+		fRaid:Whisper(playername, 'Negative bid amount rejected.')
+		return
+	end
+	
+	if amount > 10000 then
+		fRaid:Whisper(playername, 'Outrageous bid amount rejected.')
+		return
+	end
+	
+	local lootinfo = fRaidLoot.GetInfo(iteminfo.id)
+	if lootinfo and lootinfo.mindkp > 0 then
+		if amount > lootinfo.mindkp and dkpinfo.dkp < lootinfo.mindkp then
+			--amount = min(amount, max(dkpinfo.dkp, lootinfo.mindkp))
+			amount = lootinfo.mindkp
+			fRaid:Whisper(playername, 'Capping your bid at mindkp since you have less than mindkp.')		
+		elseif amount < lootinfo.mindkp then
+			amount = lootinfo.mindkp
+			fRaid:Whisper(playername, 'Rasing your bid to mindkp.')
 		end
 	end
 	
@@ -379,6 +406,15 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 				if iteminfo.countawarded >= iteminfo.count then
 					iteminfo.isopen = false
 				end
+				
+				local winnerinfo = {
+					id = iteminfo.id,
+					link = iteminfo.link,
+					name = bidinfo.name,
+					amount = bidinfo.actual,
+					time = date("%m/%d/%y %H:%M:%S")
+				}
+				tinsert(db.winnerlist, winnerinfo)
 				
 				--TODO: open a window and confirm charging dkp
 				addon.RefreshGUI()
@@ -642,6 +678,17 @@ function fRaidBid.CreateGUI()
 					mw_bids.col4[z]:SetText(0)
 				end
 				mw_bids.col4[z]:Show()
+				
+				if bidinfo.amount > dkpinfo.dkp then
+					mw_bids.col3[z]:SetTextColor(1,0,0)
+				else
+					mw_bids.col3[z]:SetTextColor(
+					mw_bids.col3[z].r,
+					mw_bids.col3[z].g,
+					mw_bids.col3[z].b,
+					mw_bids.col3[z].a
+					)
+				end
 				
 				--TODO: need to fill this column in...
 				mw_bids.col5[z]:Show()
@@ -908,6 +955,8 @@ function fRaidBid.CreateGUI()
 			ui:SetPoint('TOPLEFT', mw_bids.col3[i-1], 'BOTTOMLEFT', 0, -4)
 			ui:SetPoint('TOPRIGHT', mw_bids.col3[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
+		
+		ui.r,ui.g,ui.b,ui.a = ui:GetTextColor()
 	end
 	
 	--[[
@@ -1030,8 +1079,10 @@ function fRaidBid.CreateGUI()
 				local bid = iteminfo.bids[this.itemindex]
 				if bid.awarded then
 					this:ClearFocus()
+					return
 				end
 			end
+			this:HighlightText()
 		end)
 	end
 
