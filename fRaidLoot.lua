@@ -212,6 +212,10 @@ function fRaidLoot.View()
 		end
 		
 		--Scripts for mainwindow
+		mw:SetScript('OnShow', function()
+			tinsert(UISpecialFrames,this:GetName())
+			
+		end)
 		mw:SetScript('OnHide', function()
 			this:SaveLocation()
 		end)
@@ -317,6 +321,10 @@ function fRaidLoot.View()
 				this:SetNumber(db.items[this.itemindex].mindkp)
 				this:ClearFocus()
 			end)
+			eb:SetScript('OnEditFocusLost', function()
+				--restore old value
+				this:SetNumber(db.items[this.itemindex].mindkp)
+			end)
 		end
 		
 		--Column 3: Max DKP
@@ -347,6 +355,10 @@ function fRaidLoot.View()
 				--restore old value
 				this:SetNumber(db.items[this.itemindex].maxdkp)
 				this:ClearFocus()
+			end)
+			eb:SetScript('OnEditFocusLost', function()
+				--restore old value
+				this:SetNumber(db.items[this.itemindex].mindkp)
 			end)
 		end
 		

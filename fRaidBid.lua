@@ -15,6 +15,7 @@ function addon:OnInitialize()
 	if db.winnerlist == nil then
 		db.winnerlist = {}
 	end
+	db.activebid = nil  --used by Award Button and LOOT_SLOT_CLEARED
 end
 
 --==================================================================================================
@@ -125,20 +126,20 @@ function BIDLIST.RemoveItem(itemlink)
 		itemid = fRaid:ExtractItemId(itemlink)
 	end
 
-	print('REMOVEITEM')
+	--print('REMOVEITEM')
 	for idx,info in ipairs(db.bidlist) do
 		print(idx .. '-matching '..info.id .. ' and ' .. itemid)
 		if info.id == itemid then
-			print('matched')
+			--print('matched')
 			if info.count == 1 then
-				print('count = 1')
+				--print('count = 1')
 				tremove(db.bidlist, idx)
 				--only reset db.bidnumber if db.bidlist is empty
 				if #db.bidlist == 0 then
 					db.bidnumber = 1
 				end
 			else
-				print('count = ' .. info.count)
+				--print('count = ' .. info.count)
 				info.count = info.count - 1
 			end
 			----refresh gui
@@ -154,14 +155,21 @@ local function bidcomparer(a, b)
 		return true
 	end
 	
-	local x, y
-	x = tonumber(a.amount) or 0
-	y = tonumber(b.amount) or 0
+	local a_amount, b_amount
+	a_amount = tonumber(a.amount) or 0
+	b_amount = tonumber(b.amount) or 0
 	
-	if x == y then
-		return a.name < b.name
+	if a_amount == b_amount then
+		local a_total, b_total
+		a_total = tonumber(a.total) or 0
+		b_total = tonumber(b.total) or 0
+		if a_total == b_total then
+			return a.name < b.name
+		else
+			return a_total > b_total
+		end
 	else
-		return x > y
+		return a_amount > b_amount
 	end
 end
 
@@ -171,12 +179,20 @@ function BIDLIST.AddBid(playername, number, bidamount)
 		if info.number == number then
 			local alreadybid = false
 			--check if they already bid
+			--and refresh their total dkp (who knows, it might change)
 			for idx2,bid in ipairs(info.bids) do
 				if bid.name == playername then
 					bid.amount = bidamount
 					alreadybid = true
-					break
 				end
+				
+				--refresh dkp
+				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
+				local tot = 0
+				if dkpinfo then
+					tot = dkpinfo.dkp
+				end
+				bid.total = tot
 			end
 			
 			if not alreadybid then
@@ -186,12 +202,20 @@ function BIDLIST.AddBid(playername, number, bidamount)
 				if lootinfo then
 					x = lootinfo.mindkp
 				end
+				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(playername)
+				local tot = 0
+				if dkpinfo then
+					tot = dkpinfo.dkp
+				end
+				
 				tinsert(info.bids, {
 					name = playername,
 					amount = tonumber(bidamount), --how much they bid
+					total = tot, --how much dkp they have available
+					actual = x, --how much they will actually be charged if they win
 					winner = false, --whether or not they are marked as winning by you
 					awarded = false, --whether or not they were awarded the loot
-					actual = x, --how much they will actually be charged if they win
+					charged = false, --whether or not they were charged for this loot
 					ismanualedit = false, --determines if actual amount is calculated or left alone
 				})
 			end
@@ -225,6 +249,23 @@ function BIDLIST.RemoveBid(playername, number)
 		end
 	end
 	--invalid number, playername...
+end
+
+function BIDLIST.RefreshBids()
+	for idx,info in ipairs(db.bidlist) do
+		for idx2,bid in ipairs(info.bids) do
+			--refresh dkp
+			local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
+			local tot = 0
+			if dkpinfo then
+				tot = dkpinfo.dkp
+			end
+			bid.total = tot
+		end
+		
+		--sort bids
+		sort(info.bids, bidcomparer)
+	end
 end
 
 --==================================================================================================
@@ -324,7 +365,11 @@ function addon.AddBid(playername, number, cmd)
 	
 	local lootinfo = fRaidLoot.GetInfo(iteminfo.id)
 	if lootinfo and lootinfo.mindkp > 0 then
-		if amount > lootinfo.mindkp and dkpinfo.dkp < lootinfo.mindkp then
+		local xdkp = 0
+		if dkpinfo then
+			xdkp = dkpinfo.dkp
+		end
+		if amount > lootinfo.mindkp and xdkp < lootinfo.mindkp then
 			--amount = min(amount, max(dkpinfo.dkp, lootinfo.mindkp))
 			amount = lootinfo.mindkp
 			fRaid:Whisper(playername, 'Capping your bid at mindkp since you have less than mindkp.')		
@@ -346,12 +391,18 @@ function addon.AnnounceBidItems()
 end
 
 function addon.AnnounceWinningBids()
+	local nobodywon = true
 	for idx,iteminfo in ipairs(BIDLIST.GetList()) do
+		nobodywon = true
 		for idx2,bidinfo in ipairs(iteminfo.bids) do
 			if bidinfo.winner then
-				SendChatMessage(bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
-				print(bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
+				nobodywon = false
+				SendChatMessage(iteminfo.number .. ' ' .. bidinfo.name .. ' is winning ' .. iteminfo.link .. ' for ' .. bidinfo.actual, 'RAID')
+				--print(iteminfo.number .. ' ' .. bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
 			end
+		end
+		if nobodywon then
+			SendChatMessage(iteminfo.number .. ' nobody is winning ' .. iteminfo.link, 'RAID')
 		end
 	end
 end
@@ -361,7 +412,9 @@ end
 
 --open the bid window if it isn't open
 function fRaidBid.LOOT_OPENED()
-	addon:ShowGUI()
+	if db.alwaysshow or UnitInRaid('player') then
+		addon:ShowGUI()
+	end
 end
 
 --close the bid window if no bids
@@ -372,7 +425,7 @@ function fRaidBid.LOOT_CLOSED()
 end
 
 function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
-	print(eventName .. '>>' .. msg)
+	--print(eventName .. '>>' .. msg)
 	local name, link
 	local starti, endi = strfind(msg, 'You receive loot: ')
 	if starti and starti == 1 then
@@ -398,8 +451,8 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 			local bidinfo = BIDLIST.GetBidInfo(iteminfo.number, name)
 			if bidinfo and not bidinfo.awarded then	--player has bid on that item
 				--charge dkp
-				fRaid:Print('Charging ' .. bidinfo.name .. ' ' .. bidinfo.actual .. ' dkp for ' .. iteminfo.link)
-				fDKP:AddDKP(bidinfo.name, -bidinfo.actual)
+				fRaidBid.ChargeDKP(iteminfo, bidinfo)
+				
 				bidinfo.awarded = true
 				iteminfo.countawarded = iteminfo.countawarded + 1
 				--close biditem
@@ -407,22 +460,50 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 					iteminfo.isopen = false
 				end
 				
-				local winnerinfo = {
-					id = iteminfo.id,
-					link = iteminfo.link,
-					name = bidinfo.name,
-					amount = bidinfo.actual,
-					time = date("%m/%d/%y %H:%M:%S")
-				}
-				tinsert(db.winnerlist, winnerinfo)
-				
-				--TODO: open a window and confirm charging dkp
+				--TODO maybe: open a window and confirm charging dkp
 				addon.RefreshGUI()
-			else --TODO: if nobody has a bid on the item open popup requesting dkp to charge
+			else
+				--TODO maybe: if nobody has a bid on the item open popup requesting dkp to charge
 			end
-			--print('not attemptin to remove item')
-			--BIDLIST.RemoveItem(link)
 		end
+	end
+end
+
+function fRaidBid.LOOT_SLOT_CLEARED(eventName, slotnumber)
+	print(eventName .. ' slotnumber = ' .. slotnumber)
+	if db.activeiteminfo and db.activebidinfo and db.activelootlinks then
+		if db.activelootlinks[slotnumber] == db.activeiteminfo.link then
+			db.activebidinfo.awarded = true
+			db.activeiteminfo = nil
+			db.activebidinfo = nil
+			db.activelootlinks = nil
+			
+			db.activeiteminfo.countawarded = db.activeiteminfo.countawarded + 1
+			--close biditem
+			if db.activeiteminfo.countawarded >= db.activeiteminfo.count then
+				db.activeiteminfo.isopen = false
+			end
+			
+			addon.RefreshGUI()
+		end
+	end
+end
+
+function fRaidBid.ChargeDKP(iteminfo, bidinfo)
+	if not bidinfo.charged then
+		--charge dkp
+		fRaid:Print('Charging ' .. bidinfo.name .. ' ' .. bidinfo.actual .. ' dkp for ' .. iteminfo.link)
+		fDKP:AddDKP(bidinfo.name, -bidinfo.actual)
+		
+		local winnerinfo = {
+			id = iteminfo.id,
+			link = iteminfo.link,
+			name = bidinfo.name,
+			amount = bidinfo.actual,
+			time = date("%m/%d/%y %H:%M:%S")
+		}
+		tinsert(db.winnerlist, winnerinfo)
+		bidinfo.charged = true
 	end
 end
 
@@ -456,7 +537,7 @@ function fRaidBid.CreateGUI()
 		end)
 	end
 	
-	mw:SetWidth(450)
+	mw:SetWidth(525)
 	mw:SetHeight(350)
 	mw:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', db.gui.x, db.gui.y)
 	
@@ -466,12 +547,12 @@ function fRaidBid.CreateGUI()
 	mw_menu:SetPoint('TOPLEFT', mw, 'TOPLEFT', 0, -24)
 	
 	local mw_items = mw.subframes[2]
-	mw_items:SetWidth(350)
+	mw_items:SetWidth(425)
 	mw_items:SetHeight(125)
 	mw_items:SetPoint('TOPLEFT', mw_menu, 'TOPRIGHT', 0,0)
 	
 	local mw_bids = mw.subframes[3]
-	mw_bids:SetWidth(350)
+	mw_bids:SetWidth(425)
 	mw_bids:SetHeight(150)
 	mw_bids:SetPoint('TOP', mw_items, 'BOTTOM', 0,0)
 
@@ -627,6 +708,8 @@ function fRaidBid.CreateGUI()
 	
 	--loads data into mw_bids
 	function mw:LoadBidRows(startingindex)
+		BIDLIST.RefreshBids()
+		
 		mw_bids.startingindex= startingindex
 		local items = BIDLIST.GetList()
 		local iteminfo = items[mw_items.selecteditemindex]
@@ -648,55 +731,72 @@ function fRaidBid.CreateGUI()
 			bidinfo = bids[i]
 			if bidinfo then
 				--fill in this row's ui with data
+				
+				--1 Win check
 				if bidinfo.winner then
 					mw_bids.col1[z]:Show()
 				else
 					mw_bids.col1[z]:Hide()
 				end
+				
+				--2 Name
 				mw_bids.col2[z]:SetText(bidinfo.name)
 				mw_bids.col2[z]:Show()
 				mw_bids.col2[z].itemindex = i
-				if bidinfo.awarded then
+				if bidinfo.awarded and bidinfo.charged then
 					mw_bids.col2[z].highlightspecial:Show()
 				else
 					mw_bids.col2[z].highlightspecial:Hide()
 				end
-
-				mw_bids.col3[z]:SetText(bidinfo.amount)
+				
+				--3 Rank
+				--TODO: need to fill this column in...
 				mw_bids.col3[z]:Show()
+				
+				--4 Bid
+				mw_bids.col4[z]:SetText(bidinfo.amount)
+				mw_bids.col4[z]:Show()
 				--[[
 				mw_bids.col3[z]:SetNumber(bidinfo.amount)
 				mw_bids.col3[z]:Show()
 				mw_bids.col3[z]:ClearFocus()
 				mw_bids.col3[z].itemindex = i
 				--]]
-
-				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bidinfo.name)
-				if dkpinfo then
-					mw_bids.col4[z]:SetText(dkpinfo.dkp)
-				else
-					mw_bids.col4[z]:SetText(0)
-				end
-				mw_bids.col4[z]:Show()
 				
-				if bidinfo.amount > dkpinfo.dkp then
-					mw_bids.col3[z]:SetTextColor(1,0,0)
+				
+				--5 Total
+				mw_bids.col5[z]:SetText(bidinfo.total)
+				mw_bids.col5[z]:Show()
+				
+				if bidinfo.amount > bidinfo.total then
+					mw_bids.col4[z]:SetTextColor(1,0,0)
 				else
-					mw_bids.col3[z]:SetTextColor(
-					mw_bids.col3[z].r,
-					mw_bids.col3[z].g,
-					mw_bids.col3[z].b,
-					mw_bids.col3[z].a
+					mw_bids.col4[z]:SetTextColor(
+					mw_bids.col4[z].r,
+					mw_bids.col4[z].g,
+					mw_bids.col4[z].b,
+					mw_bids.col4[z].a
 					)
 				end
 				
-				--TODO: need to fill this column in...
-				mw_bids.col5[z]:Show()
-				
+				--6 Actual
 				mw_bids.col6[z]:SetNumber(tonumber(bidinfo.actual))
 				mw_bids.col6[z]:Show()
 				mw_bids.col6[z]:ClearFocus()
 				mw_bids.col6[z].itemindex = i
+				
+				--7 Award
+				mw_bids.col7[z]:Show()
+				mw_bids.col7[z].itemindex = i
+				if not bidinfo.charged and not bidinfo.awarded  then
+					mw_bids.col7[z]:SetText('Charge|Award')
+				elseif bidinfo.charged and not bidinfo.awarded then
+					mw_bids.col7[z]:SetText('Award')
+				elseif not bidinfo.charged and bidinfo.awarded then
+					mw_bids.col7[z]:SetText('Charge')
+				else
+					mw_bids.col7[z]:SetText('Done')
+				end
 			else
 				--hide this row's ui
 				mw_bids.col1[z]:Hide()
@@ -705,6 +805,7 @@ function fRaidBid.CreateGUI()
 				mw_bids.col4[z]:Hide()
 				mw_bids.col5[z]:Hide()
 				mw_bids.col6[z]:Hide()
+				mw_bids.col7[z]:Hide()
 			end
 			
 			z = z + 1
@@ -844,9 +945,9 @@ function fRaidBid.CreateGUI()
 	
 	--Bids
 	----Column Headers
-	----6 columns: Check, Name, Bid, Total, Rank, Actual
+	----7 columns: Check, Name, Bid, Total, Rank, Actual, Award button
 	mw_bids.headers = {} --contains fontstrings
-	for i = 1,6 do
+	for i = 1,7 do
 		ui = fLib.GUI.CreateLabel(mw_bids)
 		tinsert(mw_bids.headers, ui)
 		ui:SetJustifyH('LEFT')
@@ -858,18 +959,20 @@ function fRaidBid.CreateGUI()
 		ui:SetHeight(12)
 	end
 	
-	mw_bids.headers[1]:SetText(' ')
-	mw_bids.headers[1]:SetWidth(15)
+	mw_bids.headers[1]:SetText('Win')
+	mw_bids.headers[1]:SetWidth(30)
 	mw_bids.headers[2]:SetText('Name')
-	mw_bids.headers[2]:SetWidth(100)
-	mw_bids.headers[3]:SetText('Bid')
+	mw_bids.headers[2]:SetWidth(85)
+	mw_bids.headers[3]:SetText('Rank')
 	mw_bids.headers[3]:SetWidth(50)
-	mw_bids.headers[4]:SetText('Total')
+	mw_bids.headers[4]:SetText('Bid')
 	mw_bids.headers[4]:SetWidth(50)
-	mw_bids.headers[5]:SetText('Rank')
+	mw_bids.headers[5]:SetText('Total')
 	mw_bids.headers[5]:SetWidth(50)
 	mw_bids.headers[6]:SetText('Actual')
 	mw_bids.headers[6]:SetWidth(50)
+	mw_bids.headers[7]:SetText('Action')
+	mw_bids.headers[7]:SetWidth(95)
 	
 	tex = fLib.GUI.CreateSeparator(mw_bids)
 	tex:SetWidth(mw_bids:GetWidth()- 32)
@@ -923,7 +1026,11 @@ function fRaidBid.CreateGUI()
 			if iteminfo then
 				local bids = iteminfo.bids
 				if bids[this.itemindex].winner then
-					bids[this.itemindex].winner = false
+					if bids[this.itemindex].awarded or bids[this.itemindex].charged then
+						fRaid:Print('Cannot set this bid to win because bidder has already been charged and/or awarded loot.')
+					else
+						bids[this.itemindex].winner = false
+					end
 				else
 					local winnercount = 0
 					for idx,bid in ipairs(bids) do
@@ -942,7 +1049,7 @@ function fRaidBid.CreateGUI()
 		end)
 	end
 	
-	----Column 3: Amount
+	----Column 3: Rank
 	mw_bids.col3 = {} --contains fontstrings
 	for i = 1, bidrowcount do
 		ui = fLib.GUI.CreateLabel(mw_bids)
@@ -954,6 +1061,21 @@ function fRaidBid.CreateGUI()
 		else
 			ui:SetPoint('TOPLEFT', mw_bids.col3[i-1], 'BOTTOMLEFT', 0, -4)
 			ui:SetPoint('TOPRIGHT', mw_bids.col3[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+	end
+	
+	----Column 4: Amount
+	mw_bids.col4 = {} --contains fontstrings
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateLabel(mw_bids)
+		tinsert(mw_bids.col4, ui)
+		ui:SetText('11')
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[4], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[4], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col4[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col4[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
 		
 		ui.r,ui.g,ui.b,ui.a = ui:GetTextColor()
@@ -1001,22 +1123,7 @@ function fRaidBid.CreateGUI()
 	end
 	--]]
 	
-	----Column 4: Total
-	mw_bids.col4 = {} --contains fontstrings
-	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateLabel(mw_bids)
-		tinsert(mw_bids.col4, ui)
-		ui:SetText('11')
-		if i == 1 then
-			ui:SetPoint('TOPLEFT', mw_bids.headers[4], 'BOTTOMLEFT', 0, -4)
-			ui:SetPoint('TOPRIGHT', mw_bids.headers[4], 'BOTTOMRIGHT', 0, -4)
-		else
-			ui:SetPoint('TOPLEFT', mw_bids.col4[i-1], 'BOTTOMLEFT', 0, -4)
-			ui:SetPoint('TOPRIGHT', mw_bids.col4[i-1], 'BOTTOMRIGHT', 0, -4)
-		end
-	end
-	
-	----Column 5: Rank
+	----Column 5: Total
 	mw_bids.col5 = {} --contains fontstrings
 	for i = 1, bidrowcount do
 		ui = fLib.GUI.CreateLabel(mw_bids)
@@ -1030,6 +1137,8 @@ function fRaidBid.CreateGUI()
 			ui:SetPoint('TOPRIGHT', mw_bids.col5[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
 	end
+	
+	
 	
 	----Column 6: Actual
 	mw_bids.col6 = {} --contains editboxes
@@ -1083,6 +1192,89 @@ function fRaidBid.CreateGUI()
 				end
 			end
 			this:HighlightText()
+		end)
+	end
+
+
+	----Column 7: Action
+	mw_bids.col7 = {} --contains buttons
+	for i = 1, bidrowcount do
+		ui = fLib.GUI.CreateActionButton(mw_bids)
+		tinsert(mw_bids.col7, ui)
+		ui:GetFontString():SetAllPoints()
+		ui:GetFontString():SetJustifyH('LEFT')
+		ui:SetText('Charge|Award')
+		ui:SetHeight(ui:GetTextHeight())
+
+		if i == 1 then
+			ui:SetPoint('TOPLEFT', mw_bids.headers[7], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.headers[7], 'BOTTOMRIGHT', 0, -4)
+		else
+			ui:SetPoint('TOPLEFT', mw_bids.col7[i-1], 'BOTTOMLEFT', 0, -4)
+			ui:SetPoint('TOPRIGHT', mw_bids.col7[i-1], 'BOTTOMRIGHT', 0, -4)
+		end
+		--[[
+		local highlight = ui:CreateTexture(nil, "BACKGROUND")
+		highlight:SetTexture(0.96, 0.55, 0.73, .2)
+		ui.highlightspecial = highlight
+		highlight:SetBlendMode("ADD")
+		highlight:SetAllPoints(ui)
+		highlight:Hide()
+		--]]
+		
+		ui.itemindex= 0
+		ui:SetScript('OnClick', function()
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			if iteminfo then
+				local bids = iteminfo.bids
+				local bidinfo = bids[this.itemindex]
+				
+				if bidinfo.winner then
+					--charge dkp if they haven't been charged
+					--add to winnerlist
+					fRaidBid.ChargeDKP(iteminfo, bidinfo)
+					
+					--try to award loot if they haven't been awarded and loot window is open
+					--set a global activebid to be used by LOOT_SLOT_CLEARED event  handler
+					if not bidinfo.awarded and GetNumLootItems() > 0 then
+						print('attempting to loot')
+						local slot = 0
+						--saving info to be used by LOOT_SLOT_CLEARED
+						db.activeiteminfo = iteminfo
+						db.activebidinfo = bidinfo
+						db.activelootlinks = {}
+						for k = 1, GetNumLootItems() do
+							tinsert(db.activelootlinks, GetLootSlotLink(k))
+							if GetLootSlotLink(k) == iteminfo.link then
+								slot = k
+							end
+						end
+						
+						--find idx of master loot candidate
+						local candidateindex = 0
+						local candidatename
+						for k = 1, 40 do
+							candidatename = GetMasterLootCandidate(k)
+							if candidatename and strlower(candidatename) == strlower(bidinfo.name) then
+								candidateindex = k
+								break
+							end
+						end
+						
+						--Master loot item to bidder
+						print('slot=' .. slot .. ',candidate='..candidateindex)
+						if slot > 0 and candidateindex > 0 then
+							fRaid:Print('Looting ' .. iteminfo.link .. ' to ' .. bidinfo.name .. '.')
+							GiveMasterLoot(slot, candidateindex)
+						end
+					end
+				else
+					fRaid:Print(bidinfo.name .. ' is not set to win.  Click on their name to set them as a winner.')
+				end
+						
+				mw:LoadBidRows(mw_bids.startingindex)
+			end
 		end)
 	end
 

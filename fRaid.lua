@@ -90,14 +90,19 @@ local defaults = {
 			},
 		},
 		fRaidBid = {
+			bidlist = {},
+			winnerlist = {},
 			gui = {
 				x = 200,
 				y = 300,
+				alwaysshow = false,
 			},
 		},
-		bidlist = {},
-		items = {},
-		mobs = {},
+		fRaidMob = {
+			moblist = {},
+		},
+		fRaidHistory = {
+		},
 	},
 }
 
@@ -155,6 +160,7 @@ function addon:OnInitialize()
 	
 	fRaidLoot:OnInitialize()
 	fRaidBid:OnInitialize()
+	fRaidMob:OnInitialize()
 	addon:CreateGUI()
 	
 	self:Debug("<<OnInitialize>> end")
@@ -214,6 +220,14 @@ end
 
 function addon:LOOT_CLOSED(...)
 	fRaidBid.LOOT_CLOSED(...)
+end
+
+function addon:COMBAT_LOG_EVENT_UNFILTERED(...)
+	fRaidMob.Scan(...)
+end
+
+function addon:LOOT_SLOT_CLEARED(...)
+	fRaidBid.LOOT_SLOT_CLEARED(...)
 end
 
 --======================================================================================
