@@ -6,7 +6,11 @@
 
 embeds.xml
 fRaid.lua
-fRaidLoot.lua
 fRaidMob.lua
 fRaidBid.lua
 fRaidHistory.lua
+fRaidInstance.lua
+fRaidBoss.lua
+fRaidItem.lua
+fRaidPlayer.lua
+fRaid.Raid.lua

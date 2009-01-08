@@ -33,7 +33,7 @@ function fRaidMob.Scan(eventName, _, event, _, _, _, _, mob)
 	if event ~= "UNIT_DIED" then return end
 	if mob then
 		--save it
-		fRaidMob.Add(mob, GetRealZoneText())
+		--fRaidMob.Add(mob, GetRealZoneText())
 		
 		--award dkp popup if in raid
 		

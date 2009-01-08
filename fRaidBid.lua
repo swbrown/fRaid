@@ -187,7 +187,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 				end
 				
 				--refresh dkp
-				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
+				local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(bid.name)
 				local tot = 0
 				if dkpinfo then
 					tot = dkpinfo.dkp
@@ -197,12 +197,12 @@ function BIDLIST.AddBid(playername, number, bidamount)
 			
 			if not alreadybid then
 				--add new bid
-				local lootinfo = fRaidLoot.GetInfo(info.id)
+				local lootinfo = fRaidItem.GetInfo(info.id)
 				local x = 0
 				if lootinfo then
 					x = lootinfo.mindkp
 				end
-				local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(playername)
+				local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(playername)
 				local tot = 0
 				if dkpinfo then
 					tot = dkpinfo.dkp
@@ -255,7 +255,7 @@ function BIDLIST.RefreshBids()
 	for idx,info in ipairs(db.bidlist) do
 		for idx2,bid in ipairs(info.bids) do
 			--refresh dkp
-			local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(bid.name)
+			local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(bid.name)
 			local tot = 0
 			if dkpinfo then
 				tot = dkpinfo.dkp
@@ -273,6 +273,8 @@ end
 
 --add items in the currently open loot window
 function addon.Scan()
+	fRaidItem.Scan()
+
 	local link
 	local loots = {}
 	for i = 1, GetNumLootItems() do
@@ -304,7 +306,7 @@ function addon.AddBid(playername, number, cmd)
 		return
 	end
 	
-	local dkpinfo = fDKP.DKPLIST.GetPlayerInfo(playername)
+	local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(playername)
 	
 	if not cmd or (type(tonumber(cmd)) ~= 'number' and type(cmd) ~= 'string') then
 		local msg = 'Invalid bid: invalid or missing bid amount or min or all or cancel\n'
@@ -338,7 +340,7 @@ function addon.AddBid(playername, number, cmd)
 				return
 			end
 		elseif cmd == 'min' then
-			local lootinfo = fRaidLoot.GetInfo(iteminfo.id)
+			local lootinfo = fRaidItem.GetInfo(iteminfo.id)
 			if lootinfo then
 				amount = tonumber(lootinfo.mindkp)
 			else
@@ -363,7 +365,7 @@ function addon.AddBid(playername, number, cmd)
 		return
 	end
 	
-	local lootinfo = fRaidLoot.GetInfo(iteminfo.id)
+	local lootinfo = fRaidItem.GetInfo(iteminfo.id)
 	if lootinfo and lootinfo.mindkp > 0 then
 		local xdkp = 0
 		if dkpinfo then
@@ -493,7 +495,7 @@ function fRaidBid.ChargeDKP(iteminfo, bidinfo)
 	if not bidinfo.charged then
 		--charge dkp
 		fRaid:Print('Charging ' .. bidinfo.name .. ' ' .. bidinfo.actual .. ' dkp for ' .. iteminfo.link)
-		fDKP:AddDKP(bidinfo.name, -bidinfo.actual)
+		fRaidPlayer:AddDKP(bidinfo.name, -bidinfo.actual, iteminfo.link)
 		
 		local winnerinfo = {
 			id = iteminfo.id,
