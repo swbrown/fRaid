@@ -1,288 +1,17 @@
-﻿-- Author      : Jessica Chen Huang
+-- Author      : Jessica Chen Huang
 -- Create Date : 1/7/2009 10:41:06 AM
 
 --fRaid.db.global.CurrentRaid
---fRaid.db.global.PlayerList
---fRaid.db.global.DkpHistoryList
---fRaid.GUI2.PlayerFrame
+--fRaid.db.global.RaidList
+--fRaid.GUI2.RaidFrame
 
 fRaid.Raid = {}
 
-function fRaidPlayer.Scan(name)
-	
-end
-
---===================================================================================
---Functions that access DKPLIST
---USE ONLY THESE FUNCTIONS TO ACCESS DKPLIST--
---fRaid.db.global.PlayerList (idx => {name, dkp, valid, attendance}
---fRaid.db.global.DkpHistoryList (idx => {num, property, oldval, newval})
-
---id can be the name of the player or a number, index to PlayerList
---will add new player to PlayerList if name doesn't exist, and createnew is true
---return a copy of the playerobj, and the index to PlayerList
-function DKPLIST.GetPlayer(id, createnew)
-	--retrieve player
-	local obj, ix
-	if type(id) == 'number' then
-		obj = fRaid.db.global.PlayerList[id]
-		if obj then
-			ix = id
-		end
-	else
-		id = fRaid:Capitalize(strlower(strtrim(id)))
-		for idx,data in ipairs(fRaid.db.global.PlayerList) do
-			if data.name == id then
-				obj = data
-				ix = idx
-				print(unpack(obj))
-				break
-			end
-		end
-	end
-
-	if not obj and createnew then
-		--newplayer
-		obj = {
-			name = id,
-			dkp = 0,
-			valid = true,
-			attendance = 0,
-			class = '',
-			role = '', --dps, heal, tank?
-		}
-		
-		--add player
-		tinsert(fRaid.db.global.PlayerList, obj)
-		ix = #fRaid.db.global.PlayerList
-		--audit
-		tinsert(fRaid.db.global.DkpHistoryList, {#fRaid.db.global.PlayerList, 'new', '', obj.name, ''})
-		fRaid:Print('Added new player ' .. obj.name)
-	end
-
-	--return copy of obj
-	local objcopy
-	if obj then
-		objcopy = {}
-		for key,val in pairs(obj) do
-			objcopy[key] = val
-		end
-	end
-	return objcopy, ix
-end
-
---removes the player
---id can be the name of the player or a number, index to PlayerList
-function DKPLIST.RemovePlayer(id, note)
-	--retrieve player
-	local obj, ix = DKPLIST.GetPlayer(id)
-	
-	if obj and obj.valid then
-		local writeobj = fRaid.db.global.PlayerList[id]
-		writeobj.valid = false
-		--audit
-		tinsert(fRaid.db.global.DkpHistoryList, {ix, 'valid', true, false, note})
-	end
-end
-
---restores the player
---id can be the name of the player or a number, index to PlayerList
-function DKPLIST.RestorePlayer(id, note)
-	--retrieve player
-	local obj, ix = DKPLIST.GetPlayer(id)
-	
-	if obj and not obj.valid then
-		local writeobj = fRaid.db.global.PlayerList[id]
-		writeobj.valid = true
-		--audit
-		tinsert(fRaid.db.global.DkpHistoryList, {ix, 'valid', false, true, note})
-	end
-end
-
---changes a player's name
---id can be the name of the player or a number, index to PlayerList
-function DKPLIST.ChangeName(id, newname, note)
-	--retrieve player
-	local obj, ix = DKPLIST.GetPlayer(id)
-
-	newname = fRaid:Capitalize(strlower(strtrim(newname)))
-	
-	if obj and obj.name ~= newname then
-		local writeobj = fRaid.db.global.PlayerList[id]
-		writeobj.name = newname
-		--audit
-		tinsert(fRaid.db.global.DkpHistoryList, {ix, 'name', obj.name, writeobj.name, note})
-	end
-end
-
-function DKPLIST.ChangeDkp(id, dkp, note)
-	--retrieve player
-	local obj, ix = DKPLIST.GetPlayer(id)
-
-	if obj and obj.dkp ~= dkp then
-		local writeobj = fRaid.db.global.PlayerList[id]
-		writeobj.dkp = dkp
-		--audit
-		tinsert(fRaid.db.global.DkpHistoryList, {ix, 'dkp', obj.dkp, dkp, note})
-	end
-end
-
---===========================================================================================
-
---required name (string)
---... are callbacks to be called by the handler
---the ConfirmDialog will send its own callback as the last arg
-function fRaidPlayer:RemovePlayerHandler(name, ...)
-	self:Debug("<<REMOVEPLAYER>>")
-	DKPLIST.RemovePlayer(name)
-	local callbacks = {...}
-	--do the ConfirmDialog callback first
-	callbacks[#callbacks]()
-	
-	for i = 1, #callbacks - 1 do
-		callbacks[i]()
-	end
-	fRaid:Print("UPDATE: " .. name .. " removed")
-end
-function fRaidPlayer:RemovePlayer(name, guicallback)
-	fRaid:ConfirmDialog('Are you sure you want to remove ' .. name .. '?', 'YESNO', addon.RemovePlayerHandler, addon, name, guicallback)
-end
-
-function fRaidPlayer:EditPlayerName(name, newname, note)
-	self:Debug("<<EditPlayerName>>")
-	if not name or strtrim(name) == '' then
-		fRaid:Print('ERROR: missing arg1 name')
-	end
-	if not newname or strtrim(newname) == '' then
-		fRaid:Print('ERROR: missing arg2 newname')
-	end
-	
-	local obj, ix = DKPLIST.GetPlayer(name)
-	if obj then
-		DKPLIST.ChangeName(ix, newname, note)
-		fRaid:Print('UPDATE: ' .. name .. ' changed to ' .. newname)
-	else
-		fRaid:Print('ERROR: ' .. name .. ' does not exist')
-	end
-end
-
---Add dkp to a player
---if doset is true, will set name's dkp to amount instead of adding/subtracting
-function fRaidPlayer:AddDKP(name, amount, note)
-	--check args
-	if not name then
-		fRaid:Print("ERROR: missing arg1 name")
-		return
-	end
-	if not amount then
-		fRaid:Print("ERROR: missing arg2 amount")
-		return
-	end
-	if type(amount) ~= 'number' then
-		fRaid:Print("ERROR: bad type arg2 needs to be a number")
-		return
-	end
-	
-	--add dkp
-	local obj, ix = DKPLIST.GetPlayer(name, true)
-	print('AddDKP: ', obj.name, obj.dkp, ix)
-	local newamount = obj.dkp + amount
-	if fRaid.db.global.cap > 0 then
-		if newamount > fRaid.db.global.cap then
-			newamount = fRaid.db.global.cap
-		end
-	end
-	DKPLIST.ChangeDkp(ix, newamount, note)
-	local newobj = DKPLIST.GetPlayer(ix)
-	local msg = 'Prev Dkp: ' .. obj.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. newobj.dkp
-	fRaid:Print('UPDATE: ' .. msg)
-	fRaid:Whisper(newobj.name, msg)
-end
-
-function fRaidPlayer:AddDKPToRaid(amount, includelistedplayers)
-	if not amount then
-		fRaid:Print('ERROR: missing arg1 amount')
-		return
-	end
-	if type(amount) ~= 'number' then
-		fRaid:Print("ERROR: bad type arg1 needs to be a number")
-		return
-	end
-
-	local name
-	for i=1,GetNumRaidMembers() do 
-		name = GetRaidRosterInfo(i)
-		if name then
-			fRaidPlayer:AddDKP(name, amount)
-		end
-	end
-	fRaid:Print('COMPLETE: ' .. amount .. ' DKP added to raid')
-	
-	if includelistedplayers then
-		if fList then
-			if fList.CURRENTLIST.IsListOpen() then
-				for idx,info in ipairs(fList.CURRENTLIST.GetList()) do
-					self:AddDKP(name, amount/2)
-				end
-				fRaid:Print("DKP added to list")
-			else
-				fRaid:Print("No list available")
-			end
-		else
-			fRaid:Print("fList is not installed")
-		end
-	end
-end
-
---cmd is a player name or one of the keywords
-local keywords = {'priest', 'mage', 'warrior', 'warlock', 'deathknight', 'paladin', 'druid', 'shaman', 'hunter'}
-function fRaidPlayer:WhisperDKP(cmd, whispertarget)
-	fRaid:Debug("<<WhisperDKP>> cmd = " .. cmd .. ", whispertarget = " .. whispertarget)
-	
-	cmd = strlower(strtrim(cmd))
-	
-	local iskeyword = false
-	--check for special keywords
-	for idx,keyword in ipairs(keywords) do
-		if cmd == keyword then
-			iskeyword = true
-			break
-		end
-	end
-	
-	if not whispertarget then
-		if iskeyword then
-			whispertarget = MYNAME
-		else
-			whispertarget = cmd
-		end
-	end
-	
-	local msg = ""
-	
-	if iskeyword then
-		--find the players who match the keyword
-		--create msg
-	else
-		local obj = DKPLIST.GetPlayer(cmd)
-		if obj then
-			msg = obj.name .. ' has ' .. obj.dkp .. ' DKP'
-		else
-			msg = cmd .. ' has 0 DKP'
-		end
-	end
-	
-	if whispertarget == MYNAME then
-		fRaid:Print(msg)
-	else
-		fRaid:Whisper(whispertarget, msg)
-	end
-end
 
 --==================================================================================================
 
-function fRaidPlayer.View()
-	local mf = fRaid.GUI2.PlayerFrame
+function fRaid.Raid.View()
+	local mf = fRaid.GUI2.RaidFrame
 	
 	if not mf.viewedonce then
 		local ui, prevui
@@ -293,9 +22,8 @@ function fRaidPlayer.View()
 		mf.mincolwidth = 20
 		mf.mincolheight = mf.rowheight * mf.availablerows + mf.availablerows + mf.rowheight
 		--#rows times height of each row plus 1 for each separator plus header row
-		mf.maxwidth = mf:GetWidth() - 25
+		mf.maxwidth = 200
 
-		mf.items = fRaid.db.global.PlayerList
 		--create ListIndex
 		mf.ListIndex = {}
 		mf.selectedindexnum = 0
@@ -322,7 +50,7 @@ function fRaidPlayer.View()
 		
 		mf.columnframes = {}	
 		local currentframe	
-		for i = 1, 4 do
+		for i = 1, 2 do
 			currentframe = fLib.GUI.CreateClearFrame(mf)
 			tinsert(mf.columnframes, currentframe)
 			
@@ -341,9 +69,9 @@ function fRaidPlayer.View()
 			ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
 			ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -4, 0)
 			ui:SetScript('OnClick', function()
-				mf:Sort(this.colnum)
-				mf:LoadRows()
-			end)			
+				--mf:Sort(this.colnum)
+				--mf:LoadRows()
+			end)
 			
 			--resize button
 			ui = fLib.GUI.CreateActionButton(currentframe)
@@ -355,33 +83,37 @@ function fRaidPlayer.View()
 			ui:RegisterForDrag('LeftButton')
 			
 			ui:SetScript('OnDragStart', function(this, button)
-				this:GetParent():StartSizing('RIGHT')
+				--this:GetParent():StartSizing('RIGHT')
 				this.highlight:Show()
 			end)
 			ui:SetScript('OnDragStop', function(this, button)
-				this:GetParent():StopMovingOrSizing()
+				--this:GetParent():StopMovingOrSizing()
 				this.highlight:Hide()
-				mf:ResetColumnFramePoints()
+				--mf:ResetColumnFramePoints()
 			end)
 			
-			--cell labels
+			--cells
 			currentframe.cells = {}
-			for j = 1, mf.availablerows do
-				ui = fLib.GUI.CreateLabel(currentframe)
-				tinsert(currentframe.cells, ui)
-				ui:SetJustifyH('LEFT')
-			end
 		end
 		
-		mf.columnframes[1].headerbutton:SetText('Name')
-		mf.columnframes[1]:SetWidth(125)
-		mf.columnframes[2].headerbutton:SetText('Dkp')
-		mf.columnframes[2]:SetWidth(50)
-		mf.columnframes[3].headerbutton:SetText('Att')
-		mf.columnframes[3]:SetWidth(75)
-		mf.columnframes[4].headerbutton:SetText('Prog')
-		mf.columnframes[4]:SetWidth(75)
+		currentframe = mf.columnframes[1]
+		for j = 1, mf.availablerows do
+			ui = fLib.GUI.CreateCheck(currentframe)
+			tinsert(currentframe.cells, ui)
+			ui:SetWidth(12)
+			ui:SetHeight(12)
+		end
+		currentframe = mf.columnframes[2]
+		for j = 1, mf.availablerows do
+			ui = fLib.GUI.CreateLabel(currentframe)
+			tinsert(currentframe.cells, ui)
+			ui:SetJustifyH('LEFT')
+		end
 		
+		mf.columnframes[1].headerbutton:SetText('P')
+		mf.columnframes[1]:SetWidth(30)
+		mf.columnframes[2].headerbutton:SetText('Raid')
+		mf.columnframes[2]:SetWidth(125)
 		
 		--rowbutton for each row
 		mf.rowbuttons = {}
@@ -477,6 +209,7 @@ function fRaidPlayer.View()
 		end
 		
 		mf:ResetColumnFramePoints()
+		
 
 		--Scroll bar
 		ui = CreateFrame('slider', nil, mf)
@@ -548,7 +281,7 @@ function fRaidPlayer.View()
 			end
 		end)
 		
-		--Player Details
+		--Raid Details
 		ui = fLib.GUI.CreateLabel(mf)
 		ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
 		ui:SetText('Name: ')
