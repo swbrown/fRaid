@@ -1,4 +1,4 @@
-﻿-- Author      : Jessica Chen Huang
+-- Author      : Jessica Chen Huang
 -- Create Date : 1/1/2009 12:36:55 AM
 
 --fRaid.db.global.CurrentRaid
@@ -14,7 +14,7 @@ function fRaidInstance.PLAYER_ENTERING_WORLD()
 		local zonename = GetRealZoneText()
 		local instancenum = 0
 		local alreadyexists = false
-		for instanceobj in ipairs(fRaid.db.global.InstanceList) do
+		for idx, instanceobj in ipairs(fRaid.db.global.InstanceList) do
 			if zonename == instanceobj.name then
 				alreadyexists = true
 				instancenum = instanceobj.instancenum

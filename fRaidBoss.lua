@@ -7,6 +7,9 @@
 
 fRaidBoss = {}
 
+--event on kill a boss, award dkp
+
+
 function fRaidBoss.View()
 	local mf = fRaid.GUI2.BossFrame
 

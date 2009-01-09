@@ -373,8 +373,8 @@ function addon.AddBid(playername, number, cmd)
 		end
 		if amount > lootinfo.mindkp and xdkp < lootinfo.mindkp then
 			--amount = min(amount, max(dkpinfo.dkp, lootinfo.mindkp))
-			amount = lootinfo.mindkp
-			fRaid:Whisper(playername, 'Capping your bid at mindkp since you have less than mindkp.')		
+			--amount = lootinfo.mindkp
+			--fRaid:Whisper(playername, 'Capping your bid at mindkp since you have less than mindkp.')		
 		elseif amount < lootinfo.mindkp then
 			amount = lootinfo.mindkp
 			fRaid:Whisper(playername, 'Rasing your bid to mindkp.')

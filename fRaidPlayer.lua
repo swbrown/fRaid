@@ -617,7 +617,7 @@ function fRaidPlayer.View()
 			local playernum, playerobj = mf:SelectedData()
 			if playerobj then
 				local amount = tonumber(mf.eb_dkpchange:GetText())
-				if amount and amount > 0 then
+				if amount then
 					--playerobj.dkp = playerobj.dkp + newdkp
 					--TODO: note
 					fRaidPlayer:AddDKP(playerobj.name, amount, mf.eb_dkpnote:GetText())
