@@ -7,6 +7,53 @@
 
 fRaid.Raid = {}
 
+function fRaid.Raid.Start()
+	--if CurrentRaid is already started, warn that one is already started
+	if fRaid.db.global.CurrentRaid then
+		fRaid:Print('')
+	else
+		local curtimestamp = {
+			starttime = date("%m/%d/%y %H:%M:%S"),
+			endtime = nil,
+		}
+	
+		--otherwise create a new one
+		local raidobj = {
+			timestamp = curtimestamp
+			isprogression = false,
+			raiders = {}
+		}
+		
+		--add current raiders to raiders
+
+		
+		for i = 1, GetNumRaidMembers() do
+			
+			--create new raider
+			local raiderobj = {
+				playernum,
+				timestamps = {
+					curtimestamp
+				}
+			}
+		end
+		
+		fRaid.db.global.CurrentRaid = raidobj
+		fRaid:Print('Raid started')
+	end
+end
+
+function fRaid.Raid.Close()
+	if fRaid.db.global.CurrentRaid then
+		fRaid.db.global.CurrentRaid.timestamp.endtime = date("%m/%d/%y %H:%M:%S")
+	
+		tinsert(fRaid.db.global.RaidList, fRaid.db.global.CurrentRaid)
+		fRaid.db.global.CurrentRaid = {}
+	end
+end
+
+
+
 
 --==================================================================================================
 
