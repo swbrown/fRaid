@@ -282,6 +282,11 @@ function fRaidPlayer:WhisperDKP(cmd, whispertarget)
 	end
 end
 
+function fRaidPlayer.GetPlayerId(name, createnew)
+	local obj, ix = DKPLIST.GetPlayer(name, createnew)
+	return ix
+end
+
 --==================================================================================================
 
 function fRaidPlayer.View()

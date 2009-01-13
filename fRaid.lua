@@ -624,7 +624,7 @@ function fRaid.View()
 			mw:HideSubFrames()
 			mw.MenuFrame:UnselectButtons()
 			this.highlightspecial:Show()
-			fRaid.Raid.Vew()
+			--fRaid.Raid.Vew()
 		end)
 		button:SetPoint('TOPLEFT', mw.MenuFrame.buttons[bix-1], 'BOTTOMLEFT', 0, -padding)
 		bix = bix + 1
