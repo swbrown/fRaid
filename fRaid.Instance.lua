@@ -99,7 +99,10 @@ end
 function fRaid.Instance.View()
 	local mf = fRaid.GUI2.InstanceFrame
 
-	if not mf.viewedonce then	
+	if not mf.viewedonce then
+		--------------------------------------------------------------
+		--Top Section-------------------------------------------------
+		--------------------------------------------------------------
 		local title = fLib.GUI.CreateLabel(mf)
 		title:SetText('Current Zone:')
 		title:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -5)
@@ -129,6 +132,12 @@ function fRaid.Instance.View()
 		local tex = fLib.GUI.CreateSeparator(mf)
 		tex:SetWidth(mf:GetWidth() - 32)
 		tex:SetPoint('TOP', mf, 'TOP', 0,-55)
+		
+		--------------------------------------------------------------
+		--InstanceList Section-------------------------------------------------
+		--------------------------------------------------------------
+		
+		
 		
 		mf.viewedonce = true
 	end

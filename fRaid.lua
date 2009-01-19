@@ -151,6 +151,8 @@ end
 
 --Required by AceAddon
 function addon:OnInitialize()
+	fRaid.Instance = {}
+
 	self.db = LibStub("AceDB-3.0"):New(DBNAME, defaults)
 	self:Debug(DBNAME .. " loaded")
 	db = self.db.global
@@ -265,7 +267,7 @@ function addon:LOOT_SLOT_CLEARED(...)
 end
 
 function addon:PLAYER_ENTERING_WORLD(...)
-	fRaidInstance.PLAYER_ENTERING_WORLD()
+	fRaid.Instance.PLAYER_ENTERING_WORLD()
 end
 
 function addon:PLAYER_GUILD_UPDATE(...)
