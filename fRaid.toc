@@ -9,8 +9,8 @@ fRaid.lua
 fRaidMob.lua
 fRaidBid.lua
 fRaidHistory.lua
-fRaidInstance.lua
-fRaidBoss.lua
-fRaidItem.lua
+fRaid.Instance.lua
+fRaid.Boss.lua
+fRaid.Item.lua
 fRaidPlayer.lua
 fRaid.Raid.lua

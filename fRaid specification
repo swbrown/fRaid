@@ -1,0 +1,77 @@
+static list - if a list is specified as static, that means items are never removed
+	or sorted, so the idx of the item in the list will always be the same
+
+fRaid.db.global - access/save things to the lua file
+	InstanceList - static
+	BossList - static
+	ItemList - static
+	PlayerList - static
+	DkpHistoryList
+	RaidList - static
+	LootList - static
+	AuctionList - static
+	CurrentRaid
+fRaid.GUI2 - main fRaid window and holds child UI elements that you want to keep track of
+	MenuFrame
+	InstanceFrame
+	BossFrame
+	ItemFrame
+	PlayerFrame
+	RaidFrame
+	LootFrame
+	AuctionFrame
+
+UI MenuFrame
+	- Setup
+		- Instances
+		- Bosses
+		- Items
+	- Data
+		- Players
+		- Raids
+		- Loots
+		- Auctions
+	- Windows
+		- List...
+		- Auction...
+
+
+
+------------------------------------------------------------
+-Object Representations-------------------------------------
+------------------------------------------------------------
+InstanceList - list of instanceobj
+BossList - list of bossobj
+ItemList - list of itemobj
+
+PlayerList - list of playerobj
+DkpHistoryList - list of dkphistoryobj
+
+RaidList - list of raidobj
+AuctionList - list of auctionobj
+LootList - list of lootobj
+
+CurrentRaid - raidobj
+------------------------------------------------------------
+instanceobj properties
+	name - name of the instance
+	bossIdxList - list of bossobj idxs (idx to BossList)
+	isvalid
+	
+bossobj properties
+	name - name of the boss
+	instanceIdx - instanceobj idx
+	dkp - default dkp to award for a boss kill
+	itemIdxList - list of itemobj idxs (idx to ItemList)
+	associatedBossIdxList?
+	isvalid
+
+itemobj properties
+	id - wow item id
+	name - item name
+	link - item link
+	rarity - item rarity
+	mindkp - minimum dkp to charge
+	bossIdxList - list of bossobj idxs (idx to BossList), bosses that drop this item
+
+
