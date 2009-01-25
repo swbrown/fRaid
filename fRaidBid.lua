@@ -113,6 +113,9 @@ function BIDLIST.AddItem(data)
 				isopen = true, --whether or not this biditem is still open for bidding/winning?
 				bids = {} --list of bidinfos
 			})
+			
+			local obj = fRaid.Item.GetObjectById(itemid, true)
+			
 			db.bidnumber = db.bidnumber + 1
 		end
 	end
@@ -197,7 +200,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 			
 			if not alreadybid then
 				--add new bid
-				local lootinfo = fRaidItem.GetInfo(info.id)
+				local lootinfo = fRaid.Item.GetObjectById(info.id)
 				local x = 0
 				if lootinfo then
 					x = lootinfo.mindkp
@@ -273,7 +276,7 @@ end
 
 --add items in the currently open loot window
 function addon.Scan()
-	fRaidItem.Scan()
+	fRaid.Item.Scan()
 
 	local link
 	local loots = {}
@@ -340,7 +343,7 @@ function addon.AddBid(playername, number, cmd)
 				return
 			end
 		elseif cmd == 'min' then
-			local lootinfo = fRaidItem.GetInfo(iteminfo.id)
+			local lootinfo = fRaid.Item.GetObjectById(iteminfo.id)
 			if lootinfo then
 				amount = tonumber(lootinfo.mindkp)
 			else
@@ -365,7 +368,7 @@ function addon.AddBid(playername, number, cmd)
 		return
 	end
 	
-	local lootinfo = fRaidItem.GetInfo(iteminfo.id)
+	local lootinfo = fRaid.Item.GetObjectById(iteminfo.id)
 	if lootinfo and lootinfo.mindkp > 0 then
 		local xdkp = 0
 		if dkpinfo then
@@ -523,13 +526,15 @@ function fRaidBid.CreateGUI()
 	local itemrowcount = 5
 	local bidrowcount = 8
 
+	local button, ui, prevui
+
 	--create frames
-	addon.GUI = fLib.GUI.CreateEmptyFrame(2, NAME .. '_MW')
+	addon.GUI = fLibGUI.CreateEmptyFrame(2, NAME .. '_MW')
 	local mw = addon.GUI
 	
 	mw.subframes = {}
 	for i = 1, 3 do
-		tinsert(mw.subframes, fLib.GUI.CreateClearFrame(mw))
+		tinsert(mw.subframes, fLibGUI.CreateClearFrame(mw))
 		mw.subframes[i]:RegisterForDrag('LeftButton')
 		mw.subframes[i]:SetScript('OnDragStart', function(this, button)
 			mw:StartMoving()
@@ -561,7 +566,7 @@ function fRaidBid.CreateGUI()
 	--4 Titles: fRaidBid, Announce, Items, Bids
 	mw.titles = {}
 	for i = 1, 4 do
-		tinsert(mw.titles, fLib.GUI.CreateLabel(mw))
+		tinsert(mw.titles, fLibGUI.CreateLabel(mw))
 	end
 	mw.titles[1]:SetText(NAME)
 	mw.titles[2]:SetText('Announce')
@@ -576,7 +581,7 @@ function fRaidBid.CreateGUI()
 	--6 Buttons: Add Loot, Announce Items, Announce Current Winners, Clear Items, Info, Close
 	mw.buttons = {}
 	for i = 1, 6 do	
-		tinsert(mw.buttons, fLib.GUI.CreateActionButton(mw))
+		tinsert(mw.buttons, fLibGUI.CreateActionButton(mw))
 		mw.buttons[i]:SetFrameLevel(3)
 	end
 
@@ -611,9 +616,44 @@ function fRaidBid.CreateGUI()
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
 	button:SetScript('OnClick', function()
-		--mw:Toggle()
 	end)
 	button:SetPoint('TOPLEFT', mw.buttons[3], 'BOTTOMLEFT', 0,-padding)
+	
+	ui = fLibGUI.CreateLabel(mw)
+	ui:SetText('  Id:')
+	ui:SetPoint('TOPLEFT', mw.buttons[4], 'BOTTOMLEFT', 0, -padding)
+	prevui = ui
+	
+	mw.title_id = fLibGUI.CreateLabel(mw)
+	mw.title_id:SetPoint('TOPLEFT', ui, 'TOPRIGHT', padding, 0)
+	
+	ui = fLibGUI.CreateLabel(mw)
+	ui:SetText('  Min Dkp:')
+	ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -padding)
+	prevui = ui
+	
+	ui = fLibGUI.CreateEditBox2(mw, '#')
+	mw.eb_mindkp = ui
+	ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -padding)
+	ui:SetFrameLevel(3)
+	ui:SetWidth(60)
+	ui:SetNumeric(true)
+	ui:SetNumber(0)
+	ui:SetScript('OnEnterPressed', function() 
+		
+		local items = BIDLIST.GetList()
+		local iteminfo = items[mw_items.selecteditemindex]
+		local obj, id = fRaid.Item.GetObjectById(iteminfo.id)
+		if obj then
+			obj.mindkp = this:GetNumber()
+		end
+		
+		this:ClearFocus()
+		this:SetNumber(obj.mindkp)
+		
+		--refresh row (just going to refresh entire table)
+		mw:Refresh()
+	end)
 	
 	--Clear button
 	button = mw.buttons[5]
@@ -821,7 +861,7 @@ function fRaidBid.CreateGUI()
 	----2 columns: Number, Link
 	mw_items.headers = {} --contains fontstrings
 	for i = 1,2 do
-		ui = fLib.GUI.CreateLabel(mw_items)
+		ui = fLibGUI.CreateLabel(mw_items)
 		tinsert(mw_items.headers, ui)
 		ui:SetJustifyH('LEFT')
 		ui:SetHeight(12)
@@ -835,14 +875,14 @@ function fRaidBid.CreateGUI()
 	mw_items.headers[2]:SetText('Item')
 	mw_items.headers[2]:SetWidth(200)
 	
-	ui = fLib.GUI.CreateSeparator(mw_items)
+	ui = fLibGUI.CreateSeparator(mw_items)
 	ui:SetWidth(mw_items:GetWidth()- 32)
 	ui:SetPoint('TOPLEFT', mw_items.headers[1], 'BOTTOMLEFT', 0,-2)
 	
 	----Column 1: Item Numbers
 	mw_items.col1 = {} --contains fontstrings
 	for i = 1, itemrowcount do
-		ui = fLib.GUI.CreateLabel(mw_items)
+		ui = fLibGUI.CreateLabel(mw_items)
 		tinsert(mw_items.col1, ui)
 		ui:SetText('11')
 		if i == 1 then
@@ -857,7 +897,7 @@ function fRaidBid.CreateGUI()
 	----Column 2: Link
 	mw_items.col2 = {} --contains buttons
 	for i = 1, itemrowcount do
-		ui = fLib.GUI.CreateActionButton(mw_items)
+		ui = fLibGUI.CreateActionButton(mw_items)
 		tinsert(mw_items.col2, ui)
 		
 		ui:GetFontString():SetAllPoints()
@@ -893,6 +933,15 @@ function fRaidBid.CreateGUI()
 		end)
 		ui:SetScript('OnClick', function()
 			mw_items.selecteditemindex = this.itemindex
+			
+			local items = BIDLIST.GetList()
+			local iteminfo = items[mw_items.selecteditemindex]
+			local obj, idx = fRaid.Item.GetObjectById(iteminfo.id, true)
+			if obj then
+				mw.title_id:SetText(obj.id)
+				mw.eb_mindkp:SetNumber(obj.mindkp)
+			end
+			
 			mw:LoadItemRows(mw_items.startingindex)
 			mw:LoadBidRows(1)
 		end)
@@ -950,7 +999,7 @@ function fRaidBid.CreateGUI()
 	----7 columns: Check, Name, Bid, Total, Rank, Actual, Award button
 	mw_bids.headers = {} --contains fontstrings
 	for i = 1,7 do
-		ui = fLib.GUI.CreateLabel(mw_bids)
+		ui = fLibGUI.CreateLabel(mw_bids)
 		tinsert(mw_bids.headers, ui)
 		ui:SetJustifyH('LEFT')
 		if i == 1 then
@@ -976,14 +1025,14 @@ function fRaidBid.CreateGUI()
 	mw_bids.headers[7]:SetText('Action')
 	mw_bids.headers[7]:SetWidth(95)
 	
-	tex = fLib.GUI.CreateSeparator(mw_bids)
+	tex = fLibGUI.CreateSeparator(mw_bids)
 	tex:SetWidth(mw_bids:GetWidth()- 32)
 	tex:SetPoint('TOPLEFT', mw_bids.headers[1], 'BOTTOMLEFT', 0,-2)
 	
 	----Column 1: Checks
 	mw_bids.col1 = {} --contains buttons
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateCheck(mw_bids)
+		ui = fLibGUI.CreateCheck(mw_bids)
 		tinsert(mw_bids.col1, ui)
 		ui:SetWidth(12)
 		ui:SetHeight(12)		
@@ -999,7 +1048,7 @@ function fRaidBid.CreateGUI()
 	----Column 2: Name
 	mw_bids.col2 = {} --contains buttons
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateActionButton(mw_bids)
+		ui = fLibGUI.CreateActionButton(mw_bids)
 		tinsert(mw_bids.col2, ui)
 		ui:GetFontString():SetAllPoints()
 		ui:GetFontString():SetJustifyH('LEFT')
@@ -1054,7 +1103,7 @@ function fRaidBid.CreateGUI()
 	----Column 3: Rank
 	mw_bids.col3 = {} --contains fontstrings
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateLabel(mw_bids)
+		ui = fLibGUI.CreateLabel(mw_bids)
 		tinsert(mw_bids.col3, ui)
 		ui:SetText('11')
 		if i == 1 then
@@ -1069,7 +1118,7 @@ function fRaidBid.CreateGUI()
 	----Column 4: Amount
 	mw_bids.col4 = {} --contains fontstrings
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateLabel(mw_bids)
+		ui = fLibGUI.CreateLabel(mw_bids)
 		tinsert(mw_bids.col4, ui)
 		ui:SetText('11')
 		if i == 1 then
@@ -1086,7 +1135,7 @@ function fRaidBid.CreateGUI()
 	--[[
 	mw_bids.col3 = {} --contains editboxes
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateEditBox2(mw_bids, 'dkp')
+		ui = fLibGUI.CreateEditBox2(mw_bids, 'dkp')
 		tinsert(mw_bids.col3, ui)
 		
 		ui:SetWidth(100)
@@ -1128,7 +1177,7 @@ function fRaidBid.CreateGUI()
 	----Column 5: Total
 	mw_bids.col5 = {} --contains fontstrings
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateLabel(mw_bids)
+		ui = fLibGUI.CreateLabel(mw_bids)
 		tinsert(mw_bids.col5, ui)
 		ui:SetText('11')
 		if i == 1 then
@@ -1145,7 +1194,7 @@ function fRaidBid.CreateGUI()
 	----Column 6: Actual
 	mw_bids.col6 = {} --contains editboxes
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateEditBox2(mw_bids, 'dkp')
+		ui = fLibGUI.CreateEditBox2(mw_bids, 'dkp')
 		tinsert(mw_bids.col6, ui)
 		
 		ui:SetWidth(100)
@@ -1201,7 +1250,7 @@ function fRaidBid.CreateGUI()
 	----Column 7: Action
 	mw_bids.col7 = {} --contains buttons
 	for i = 1, bidrowcount do
-		ui = fLib.GUI.CreateActionButton(mw_bids)
+		ui = fLibGUI.CreateActionButton(mw_bids)
 		tinsert(mw_bids.col7, ui)
 		ui:GetFontString():SetAllPoints()
 		ui:GetFontString():SetJustifyH('LEFT')

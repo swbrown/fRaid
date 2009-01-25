@@ -7,18 +7,52 @@
 
 fRaid.Boss = {}
 
+function fRaid.Boss.PLAYER_REGEN_DISABLED()
+	
+end
+
+--TODO: award dkp to raid if mob is in moblist
+function fRaid.Boss.COMBAT_LOG_EVENT_UNFILTERED(eventName, _, event, _, _, _, guid, mob)
+	if event ~= 'UNIT_DIED' and event ~= 'PARTY_KILL' then return end
+	if guid and mob then
+		--fRaid:Print('killed', guid, mob)
+	--save it
+	--fRaidMob.Add(mob, GetRealZoneText())
+	
+	
+	--award dkp popup if in raid
+	
+	end
+end
+
 function fRaid.Boss.BossNameToIndex(bossname, instanceIdx)
-	return fRaid.db.global.BossListIndex[bossname..instanceIdx]
+	if not fRaid.db.global.BossListIndex then
+		fRaid.db.global.BossListIndex = {}
+	else
+		return fRaid.db.global.BossListIndex[bossname..instanceIdx]
+	end
 end
 	
 --recreates the ListIndex (maps boss name instance index to index)
 function fRaid.Boss.RefreshIndex()
+	if not fRaid.db.global.BossListIndex then
+		fRaid.db.global.BossListIndex = {}
+	else
+		wipe(fRaid.db.global.BossListIndex)
+		fRaid.db.global.BossListIndexCount = 0
+	end
+	local count = 0
 	wipe(fRaid.db.global.BossListIndex)
 	for idx, obj in ipairs(fRaid.db.global.BossList) do
 		if obj.isvalid then
+			if fRaid.db.global.BossListIndex[obj.id] and announceduplicates then
+				fRaid:Print('ERROR: duplicate boss found.  ID:', obj.id, ', index:', idx, '.')
+			end
 			fRaid.db.global.BossListIndex[obj.name..obj.instanceIdx] = idx
+			count = count + 1
 		end
 	end
+	fRaid.db.global.BossListIndexCount = count
 end
 
 function fRaid.Boss.GetObjectByIndex(idx)
@@ -118,36 +152,36 @@ function fRaid.Boss.View()
 
 	if not mf.viewedonce then	
 	
-		local tex = fLib.GUI.CreateSeparator(mf)
+		local tex = fLibGUI.CreateSeparator(mf)
 		--tex:SetWidth(mf:GetWidth() - 32)
 		tex:SetWidth(1)
 		tex:SetHeight(mf:GetHeight() - 32)
 		tex:SetPoint('TOPLEFT', mf, 'TOPLEFT', 100,-5)
 
 	
-		local title = fLib.GUI.CreateLabel(mf)
+		local title = fLibGUI.CreateLabel(mf)
 		title:SetText('Name:')
 		title:SetPoint('TOPLEFT', mf, 'TOPLEFT', 105, -5)
 		local prevtitle = title
 		
-		mf.title_name = fLib.GUI.CreateLabel(mf)
+		mf.title_name = fLibGUI.CreateLabel(mf)
 		mf.title_name:SetText('')
 		mf.title_name:SetPoint('TOPLEFT', title, 'TOPRIGHT', 5, 0)
 		
-		title = fLib.GUI.CreateLabel(mf)
+		title = fLibGUI.CreateLabel(mf)
 		title:SetText('Location:')
 		title:SetPoint('TOPLEFT', prevtitle, 'BOTTOMLEFT', 0, -5)
 		prevtitle = title
 
-		mf.title_location = fLib.GUI.CreateLabel(mf)
+		mf.title_location = fLibGUI.CreateLabel(mf)
 		mf.title_location:SetText('')
 		mf.title_location:SetPoint('TOPLEFT', title, 'TOPRIGHT', 5, 0)
 		
-		title = fLib.GUI.CreateLabel(mf)
+		title = fLibGUI.CreateLabel(mf)
 		title:SetText('Dkp Award')
 		title:SetPoint('TOPLEFT', prevtitle, 'BOTTOMLEFT', 0, -5)
 		
-		mf.eb_dkpaward = fLib.GUI.CreateEditBox(mf, '#')
+		mf.eb_dkpaward = fLibGUI.CreateEditBox(mf, '#')
 		mf.eb_dkpaward:SetPoint('TOPLEFT', title, 'TOPRIGHT', 5, 0)
 		mf.eb_dkpaward:SetWidth(60)
 		mf.eb_dkpaward:SetNumeric(true)

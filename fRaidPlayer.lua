@@ -188,7 +188,7 @@ function fRaidPlayer:AddDKP(name, amount, note)
 	
 	--add dkp
 	local obj, ix = DKPLIST.GetPlayer(name, true)
-	print('AddDKP: ', obj.name, obj.dkp, ix)
+	--print('AddDKP: ', obj.name, obj.dkp, ix)
 	local newamount = obj.dkp + amount
 	if fRaid.db.global.cap > 0 then
 		if newamount > fRaid.db.global.cap then
@@ -331,7 +331,7 @@ function fRaidPlayer.View()
 		mf.columnframes = {}	
 		local currentframe	
 		for i = 1, 4 do
-			currentframe = fLib.GUI.CreateClearFrame(mf)
+			currentframe = fLibGUI.CreateClearFrame(mf)
 			tinsert(mf.columnframes, currentframe)
 			
 			currentframe.enable = true
@@ -341,7 +341,7 @@ function fRaidPlayer.View()
 			currentframe:SetMinResize(mf.mincolwidth, mf.mincolheight)
 			
 			--header button
-			ui = fLib.GUI.CreateActionButton(currentframe)
+			ui = fLibGUI.CreateActionButton(currentframe)
 			currentframe.headerbutton = ui
 			ui.colnum = i
 			ui:GetFontString():SetJustifyH('LEFT')
@@ -354,7 +354,7 @@ function fRaidPlayer.View()
 			end)			
 			
 			--resize button
-			ui = fLib.GUI.CreateActionButton(currentframe)
+			ui = fLibGUI.CreateActionButton(currentframe)
 			currentframe.resizebutton = ui
 			ui:GetFontString():SetJustifyH('LEFT')
 			ui:SetWidth(4)
@@ -375,7 +375,7 @@ function fRaidPlayer.View()
 			--cell labels
 			currentframe.cells = {}
 			for j = 1, mf.availablerows do
-				ui = fLib.GUI.CreateLabel(currentframe)
+				ui = fLibGUI.CreateLabel(currentframe)
 				tinsert(currentframe.cells, ui)
 				ui:SetJustifyH('LEFT')
 			end
@@ -398,12 +398,12 @@ function fRaidPlayer.View()
 			rowoffset = mf.rowheight * i + i
 			
 			--separator
-			ui = fLib.GUI.CreateSeparator(mf)
+			ui = fLibGUI.CreateSeparator(mf)
 			ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - rowoffset)
 			ui:SetWidth(mf.maxwidth)
 			
 			--rowbutton
-			ui = fLib.GUI.CreateActionButton(mf)
+			ui = fLibGUI.CreateActionButton(mf)
 			tinsert(mf.rowbuttons, ui)
 
 			ui.indexnum = 0
@@ -535,13 +535,13 @@ function fRaidPlayer.View()
 		end)
 		
 		--separator
-		ui = fLib.GUI.CreateSeparator(mf)
+		ui = fLibGUI.CreateSeparator(mf)
 		ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - mf.mincolheight)
 		ui:SetWidth(mf.maxwidth)
 		prevui = ui
 		
 		--Search box
-		ui = fLib.GUI.CreateEditBox(mf, 'Search')
+		ui = fLibGUI.CreateEditBox(mf, 'Search')
 		mf.eb_search = ui
 		mf.search = ''
 		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
@@ -557,42 +557,42 @@ function fRaidPlayer.View()
 		end)
 		
 		--Player Details
-		ui = fLib.GUI.CreateLabel(mf)
+		ui = fLibGUI.CreateLabel(mf)
 		ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
 		ui:SetText('Name: ')
 		prevui = ui
 		
-		mf.title_name = fLib.GUI.CreateLabel(mf)
+		mf.title_name = fLibGUI.CreateLabel(mf)
 		mf.title_name:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 		mf.title_name:SetText('')
 		
-		ui = fLib.GUI.CreateLabel(mf)
+		ui = fLibGUI.CreateLabel(mf)
 		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
 		ui:SetText('Dkp:')
 		prevui = ui
 		
-		mf.title_dkp = fLib.GUI.CreateLabel(mf)
+		mf.title_dkp = fLibGUI.CreateLabel(mf)
 		mf.title_dkp:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 		mf.title_dkp:SetText('')
 		
 		--separator
-		ui = fLib.GUI.CreateSeparator(mf)
+		ui = fLibGUI.CreateSeparator(mf)
 		ui:SetWidth(1)
 		ui:SetHeight(mf:GetHeight() - mf.mincolheight - 15)
 		ui:SetPoint('TOP', mf.eb_search, 'BOTTOM', -25,-1)
 		prevui = ui
 		
-		ui = fLib.GUI.CreateLabel(mf)
+		ui = fLibGUI.CreateLabel(mf)
 		ui:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, -5)
 		ui:SetText('Modify dkp:')
 		prevui = ui
 		
-		mf.eb_dkpchange = fLib.GUI.CreateEditBox3(mf, 'amount')
+		mf.eb_dkpchange = fLibGUI.CreateEditBox3(mf, 'amount')
 		mf.eb_dkpchange:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 		mf.eb_dkpchange:SetWidth(100)
 		mf.eb_dkpchange.prevtext = ''
 		
-		mf.eb_dkpnote = fLib.GUI.CreateEditBox3(mf, 'note')
+		mf.eb_dkpnote = fLibGUI.CreateEditBox3(mf, 'note')
 		mf.eb_dkpnote:SetPoint('TOPLEFT', mf.eb_dkpchange, 'BOTTOMLEFT', 0, -5)
 		mf.eb_dkpnote:SetWidth(100)
 		

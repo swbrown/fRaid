@@ -53,12 +53,12 @@ LootList - list of lootobj
 
 CurrentRaid - raidobj
 ------------------------------------------------------------
-instanceobj properties
+instanceobj, indexed by name
 	name - name of the instance
 	bossIdxList - list of bossobj idxs (idx to BossList)
 	isvalid
 	
-bossobj properties
+bossobj, indexed by name/instanceidx
 	name - name of the boss
 	instanceIdx - instanceobj idx
 	dkp - default dkp to award for a boss kill
@@ -66,7 +66,7 @@ bossobj properties
 	associatedBossIdxList?
 	isvalid
 
-itemobj properties
+itemobj, indexed by id
 	id - wow item id
 	name - item name
 	link - item link

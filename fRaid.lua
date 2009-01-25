@@ -151,8 +151,6 @@ end
 
 --Required by AceAddon
 function addon:OnInitialize()
-	fRaid.Instance = {}
-
 	self.db = LibStub("AceDB-3.0"):New(DBNAME, defaults)
 	self:Debug(DBNAME .. " loaded")
 	db = self.db.global
@@ -179,7 +177,10 @@ function addon:OnInitialize()
 	
 	self:RegisterEvent('PLAYER_ENTERING_WORLD')
 	
-	self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED', fRaidMob.Scan)
+	self:RegisterEvent('PLAYER_REGEN_DISABLED')
+	self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED')
+	
+	
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter2)
 	
@@ -258,8 +259,12 @@ function addon:LOOT_CLOSED(...)
 	fRaidBid.LOOT_CLOSED(...)
 end
 
+function addon:PLAYER_REGEN_DISABLED(...)
+	fRaid.Boss.PLAYER_REGEN_DISABLED()
+end
+
 function addon:COMBAT_LOG_EVENT_UNFILTERED(...)
-	fRaidMob.Scan(...)
+	fRaid.Boss.COMBAT_LOG_EVENT_UNFILTERED(...)
 end
 
 function addon:LOOT_SLOT_CLEARED(...)
@@ -295,7 +300,7 @@ function addon:CreateGUI()
 	end
 	
 	--Main Window
-	addon.GUI = fLib.GUI.CreateEmptyFrame(2, NAME .. '_MW')
+	addon.GUI = fLibGUI.CreateEmptyFrame(2, NAME .. '_MW')
 	local mw = addon.GUI
 	--mw:RegisterAllEvents()
 	--mw:SetScript('OnEvent', function(this, event, ...)
@@ -309,13 +314,13 @@ function addon:CreateGUI()
 	mw:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', db.gui.x, db.gui.y)
 		
 	--Title
-	fs = fLib.GUI.CreateLabel(mw)
+	fs = fLibGUI.CreateLabel(mw)
 	fs:SetText(NAME)
 	fs:SetPoint('TOP', 0, -y)
 	y = y + fs:GetHeight() + padding
 	
 	--Close Button
-	button = fLib.GUI.CreateActionButton(mw)
+	button = fLibGUI.CreateActionButton(mw)
 	button:SetText('Close')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
@@ -339,7 +344,7 @@ function addon:CreateGUI()
 	end)
 	
 	--Buttons
-	button = fLib.GUI.CreateActionButton(mw)
+	button = fLibGUI.CreateActionButton(mw)
 	button:SetText('Open Bid Window')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
@@ -347,7 +352,7 @@ function addon:CreateGUI()
 	button:SetPoint('TOPLEFT', x, -y)
 
 	x = x + 120
-	button = fLib.GUI.CreateActionButton(mw)
+	button = fLibGUI.CreateActionButton(mw)
 	button:SetText('Open DKP Window')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
@@ -359,7 +364,7 @@ function addon:CreateGUI()
 	x = padding
 	y = y + button:GetHeight() + padding
 	
-	button = fLib.GUI.CreateActionButton(mw)
+	button = fLibGUI.CreateActionButton(mw)
 	button:SetText('Configure Loot')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
@@ -368,13 +373,13 @@ function addon:CreateGUI()
 	
 	y = y + button:GetHeight() + padding
 	
-	fs = fLib.GUI.CreateLabel(mw)
+	fs = fLibGUI.CreateLabel(mw)
 	fs:SetText('Award dkp to raid')
 	fs:SetPoint('TOPLEFT', x, -y)
 	
 	x = x + fs:GetWidth() + padding
 	
-	local eb = fLib.GUI.CreateEditBox(mw, '#')
+	local eb = fLibGUI.CreateEditBox(mw, '#')
 	eb:SetPoint('TOPLEFT', x, -y)
 	eb:SetWidth(60)
 	eb:SetNumeric(true)
@@ -388,7 +393,7 @@ function addon:CreateGUI()
 	end)
 	
 	--Separator
-	local tex = fLib.GUI.CreateSeparator(mw, -y)
+	local tex = fLibGUI.CreateSeparator(mw, -y)
 	y = y + tex:GetHeight() + padding
 end
 
@@ -400,7 +405,7 @@ function fRaid.View()
 		local y = 8
 		
 		--create windows
-		addon.GUI2 = fLib.GUI.CreateEmptyFrame(2, NAME .. '_main')
+		addon.GUI2 = fLibGUI.CreateEmptyFrame(2, NAME .. '_main')
 		local mw = addon.GUI2
 		mw:SetWidth(525)
 		mw:SetHeight(350)
@@ -408,7 +413,7 @@ function fRaid.View()
 		
 		mw.subframes = {}
 		for i = 1, 8 do
-			tinsert(mw.subframes, fLib.GUI.CreateClearFrame(mw))
+			tinsert(mw.subframes, fLibGUI.CreateClearFrame(mw))
 			
 			mw.subframes[i]:SetWidth(425)
 			mw.subframes[i]:SetHeight(300)
@@ -494,7 +499,7 @@ function fRaid.View()
 		--Titles
 		mw.titles = {}
 		for i = 1, 1 do
-			tinsert(mw.titles, fLib.GUI.CreateLabel(mw))
+			tinsert(mw.titles, fLibGUI.CreateLabel(mw))
 		end
 		mw.titles[1]:SetText(NAME)
 		mw.titles[1]:SetFontObject(GameFontHighlightLarge)
@@ -503,7 +508,7 @@ function fRaid.View()
 		--Buttons
 		mw.buttons = {}
 		for i = 1, 1 do	
-			tinsert(mw.buttons, fLib.GUI.CreateActionButton(mw))
+			tinsert(mw.buttons, fLibGUI.CreateActionButton(mw))
 			mw.buttons[i]:SetFrameLevel(3)
 		end
 		--Close button
@@ -528,7 +533,7 @@ function fRaid.View()
 		--Titles
 		mw.MenuFrame.titles = {}
 		for i = 1, 3 do
-			tinsert(mw.MenuFrame.titles, fLib.GUI.CreateLabel(mw.MenuFrame))
+			tinsert(mw.MenuFrame.titles, fLibGUI.CreateLabel(mw.MenuFrame))
 			mw.MenuFrame.titles[i]:SetFontObject(GameFontHighlightLarge)
 		end
 		mw.MenuFrame.titles[1]:SetText('Setup')
@@ -541,7 +546,7 @@ function fRaid.View()
 		--Buttons
 		mw.MenuFrame.buttons = {}
 		for i = 1, 9 do
-			tinsert(mw.MenuFrame.buttons, fLib.GUI.CreateActionButton(mw.MenuFrame))
+			tinsert(mw.MenuFrame.buttons, fLibGUI.CreateActionButton(mw.MenuFrame))
 			mw.MenuFrame.buttons[i]:SetFrameLevel(3)
 			mw.MenuFrame.buttons[i].highlightspecial = mw.MenuFrame.buttons[i]:CreateTexture(nil, "BACKGROUND")
 			mw.MenuFrame.buttons[i].highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
@@ -580,7 +585,7 @@ function fRaid.View()
 			mw:HideSubFrames()
 			mw.MenuFrame:UnselectButtons()
 			this.highlightspecial:Show()
-			fRaidBoss.View()
+			fRaid.Boss.View()
 		end)
 		button:SetPoint('TOPLEFT', mw.MenuFrame.buttons[bix-1], 'BOTTOMLEFT', 0, -padding)
 		bix = bix + 1

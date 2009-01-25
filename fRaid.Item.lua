@@ -9,23 +9,41 @@ fRaid.Item = {}
 
 --retrieves index of the itemobj with itemid
 function fRaid.Item.ItemIdToIndex(itemid)
-	return fRaid.db.global.ItemListIndex[itemid]
+	if not fRaid.db.global.ItemListIndex then
+		fRaid.db.global.ItemListIndex = {}
+	else
+		return fRaid.db.global.ItemListIndex[itemid]
+	end
 end
 
 --recreates the ItemListIndex (maps itemid to index)
-function fRaid.Item.RefreshIndex()
-	wipe(fRaid.db.global.ItemListIndex)
+function fRaid.Item.RefreshIndex(announceduplicates)
+	if not fRaid.db.global.ItemListIndex then
+		fRaid.db.global.ItemListIndex = {}
+	else
+		wipe(fRaid.db.global.ItemListIndex)
+		fRaid.db.global.ItemListIndexCount = 0
+	end
+	local count = 0
 	for idx, obj in ipairs(fRaid.db.global.ItemList) do
 		if obj.isvalid then
-			fRaid.db.global.BossListIndex[obj.id] = idx
+			if fRaid.db.global.ItemListIndex[obj.id] and announceduplicates then
+				fRaid:Print('ERROR: duplicate item found.  ID:', obj.id, ', index:', idx, '.')
+			end
+			fRaid.db.global.ItemListIndex[obj.id] = idx
+			count = count + 1
 		end
 	end
+	fRaid.db.global.ItemListIndexCount = count
+end
+
+function fRaid.Item.GetCount()
+	return fRaid.db.global.ItemListIndexCount
 end
 
 --returns an itemobj
 function fRaid.Item.GetObjectByIndex(idx)
-	local obj = fRaid.db.global.ItemList[idx]
-	return obj
+	return fRaid.db.global.ItemList[idx]
 end
 
 function fRaid.Item.GetObjectByLink(itemlink, createnew)
@@ -71,8 +89,8 @@ function fRaid.Item.GetObjectById(itemid, createnew)
 	return obj, idx
 end
 
-function fRaid.Item.RemoveByIndex(idx)
-	local obj = fRaid.Item.GetObjectByIndex(idx)
+function fRaid.Item.RemoveById(itemid)
+	local obj, idx = fRaid.Item.GetObjectById(itemid)
 	if obj then
 		--remove from bosses that it belongs to
 		local bossobj
@@ -137,11 +155,13 @@ function fRaid.Item.Scan()
 	for i = 1, GetNumLootItems() do
 		if LootSlotIsItem(i) then
 			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
-			fRaid.Item.Add(GetLootSlotLink(i))
+			--fRaid.Item.Add(GetLootSlotLink(i))
+			fRaid.Item.GetObjectByLink(GetLootSlotLink(i), true)
 		end
 	end
 end
 
+--[[
 function fRaid.Item.GetInfo(id)
 	local items = fRaid.db.global.ItemList
 	for idx,info in ipairs(items) do
@@ -150,6 +170,7 @@ function fRaid.Item.GetInfo(id)
 		end
 	end
 end
+--]]
 
 
 function fRaid.Item.View()
@@ -166,9 +187,8 @@ function fRaid.Item.View()
 		--#rows times height of each row plus 1 for each separator plus header row
 		mf.maxwidth = mf:GetWidth() - 25
 
-		mf.items = fRaid.db.global.ItemList
-		--create ItemListIndex
-		mf.ItemListIndex = {}
+		--create ListIndex for sorting
+		mf.ListIndex = {}
 		mf.selectedindexnum = 0
 		mf.previtemlistcount = 0
 		
@@ -180,8 +200,9 @@ function fRaid.Item.View()
 				indexnum = mf.selectedindexnum
 			end
 			
-			itemnum = mf.ItemListIndex[indexnum]
-			itemobj = mf.items[itemnum]
+			itemnum = mf.ListIndex[indexnum]
+			itemobj = fRaid.Item.GetObjectByIndex(itemnum)
+			--fRaid.db.global.ItemList[itemnum]
 			return itemnum, itemobj
 		end
 		
@@ -193,8 +214,8 @@ function fRaid.Item.View()
 		
 		mf.columnframes = {}	
 		local currentframe	
-		for i = 1, 4 do
-			currentframe = fLib.GUI.CreateClearFrame(mf)
+		for i = 1, 3 do
+			currentframe = fLibGUI.CreateClearFrame(mf)
 			tinsert(mf.columnframes, currentframe)
 			
 			currentframe.enable = true
@@ -204,7 +225,7 @@ function fRaid.Item.View()
 			currentframe:SetMinResize(mf.mincolwidth, mf.mincolheight)
 			
 			--header button
-			b = fLib.GUI.CreateActionButton(currentframe)
+			b = fLibGUI.CreateActionButton(currentframe)
 			currentframe.headerbutton = b
 			b.colnum = i
 			b:GetFontString():SetJustifyH('LEFT')
@@ -219,7 +240,7 @@ function fRaid.Item.View()
 			end)			
 			
 			--resize button
-			b = fLib.GUI.CreateActionButton(currentframe)
+			b = fLibGUI.CreateActionButton(currentframe)
 			currentframe.resizebutton = b
 			b:GetFontString():SetJustifyH('LEFT')
 			b:SetWidth(4)
@@ -240,20 +261,20 @@ function fRaid.Item.View()
 			--cell labels
 			currentframe.cells = {}
 			for j = 1, mf.availablerows do
-				ui = fLib.GUI.CreateLabel(currentframe)
+				ui = fLibGUI.CreateLabel(currentframe)
 				tinsert(currentframe.cells, ui)
 				ui:SetJustifyH('LEFT')
 			end
 		end
 		
 		mf.columnframes[1].headerbutton:SetText('Name')
-		mf.columnframes[1]:SetWidth(200)
+		mf.columnframes[1]:SetWidth(275)
 		mf.columnframes[2].headerbutton:SetText('MinDkp')
 		mf.columnframes[2]:SetWidth(50)
 		mf.columnframes[3].headerbutton:SetText('Rarity')
 		mf.columnframes[3]:SetWidth(50)
-		mf.columnframes[4].headerbutton:SetText('Id')
-		mf.columnframes[4]:SetWidth(75)
+		--mf.columnframes[4].headerbutton:SetText('Id')
+		--mf.columnframes[4]:SetWidth(75)
 		
 		--rowbutton for each row
 		mf.rowbuttons = {}
@@ -262,12 +283,12 @@ function fRaid.Item.View()
 			rowoffset = mf.rowheight * i + i
 			
 			--separator
-			tex = fLib.GUI.CreateSeparator(mf)
+			tex = fLibGUI.CreateSeparator(mf)
 			tex:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - rowoffset)
 			tex:SetWidth(mf.maxwidth)
 			
 			--rowbutton
-			b = fLib.GUI.CreateActionButton(mf)
+			b = fLibGUI.CreateActionButton(mf)
 			tinsert(mf.rowbuttons, b)
 
 			b.indexnum = 0
@@ -303,7 +324,7 @@ function fRaid.Item.View()
 				this.highlight:Show()
 				GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
 				GameTooltip:SetPoint('LEFT', mf, 'RIGHT', 0, 0)
-				local itemnum, itemobj = mf:SelectedData()
+				local itemnum, itemobj = mf:SelectedData(this.indexnum)
 				if itemobj then
 					GameTooltip:SetHyperlink('item:'..itemobj.id)
 				end
@@ -415,12 +436,12 @@ function fRaid.Item.View()
 		end)
 		
 		--separator
-		tex = fLib.GUI.CreateSeparator(mf)
+		tex = fLibGUI.CreateSeparator(mf)
 		tex:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - mf.mincolheight)
 		tex:SetWidth(mf.maxwidth)
 		
 		--Search box
-		ui = fLib.GUI.CreateEditBox(mf, 'Search')
+		ui = fLibGUI.CreateEditBox(mf, 'Search')
 		mf.eb_search = ui
 		mf.search = ''
 		ui:SetPoint('TOPLEFT', tex, 'BOTTOMLEFT', 0, -5)
@@ -435,44 +456,68 @@ function fRaid.Item.View()
 			end
 		end)
 		
-		--Item Details
-		ui = fLib.GUI.CreateLabel(mf)
-		ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
-		ui:SetText('Name: ')
+		--Total Count
+		ui = fLibGUI.CreateLabel(mf)
+		ui:SetPoint('TOPRIGHT', mf.eb_search, 'BOTTOMRIGHT', -40, -5)
+		ui:SetText('Total: ')
 		local prevui = ui
 		
-		mf.title_name = fLib.GUI.CreateLabel(mf)
+		mf.title_total = fLibGUI.CreateLabel(mf)
+		mf.title_total:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+		mf.title_total:SetText('rfg')
+		
+		----------------
+		--Item Details--
+		----------------
+		--NAME
+		ui = fLibGUI.CreateLabel(mf)
+		ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
+		ui:SetText('Name: ')
+		prevui = ui
+		
+		mf.title_name = fLibGUI.CreateLabel(mf)
 		mf.title_name:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 		mf.title_name:SetText('')
 		
-		ui = fLib.GUI.CreateLabel(mf)
+		--ID
+		ui = fLibGUI.CreateLabel(mf)
+		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
+		ui:SetText('Id:')
+		prevui = ui
+		
+		mf.title_id = fLibGUI.CreateLabel(mf)
+		mf.title_id:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+		
+		--Min DKP
+		ui = fLibGUI.CreateLabel(mf)
 		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
 		ui:SetText('Min Dkp')
 		prevui = ui
 		
-		ui = fLib.GUI.CreateEditBox2(mf, '#')
+		ui = fLibGUI.CreateEditBox2(mf, '#')
 		mf.eb_mindkp = ui
 		ui:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 		ui:SetWidth(60)
 		ui:SetNumeric(true)
 		ui:SetNumber(0)
 		ui:SetScript('OnEnterPressed', function() 
-			if this:GetNumber() > 0 then
-				local itemnum, itemobj = mf:SelectedData()
-				if itemobj then
-					itemobj.mindkp = this:GetNumber()
-				end
-				--refresh row (just going to refresh entire table)
-				mf:Refresh()
+			local itemnum, itemobj = mf:SelectedData()
+			if itemobj then
+				itemobj.mindkp = this:GetNumber()
 			end
+			
 			this:ClearFocus()
+			this:SetNumber(itemobj.mindkp)
+			
+			--refresh row (just going to refresh entire table)
+			mf:Refresh()
 		end)
 
 
 		--REFRESH
 		function mf:Refresh()
 			--regenerate ItemListIndex if ItemList has changed
-			mf:RefreshItemListIndex()
+			mf:RefreshListIndex()
 			mf:LoadRows()
 		end
 		
@@ -481,37 +526,59 @@ function fRaid.Item.View()
 			local itemnum, itemobj = mf:SelectedData()
 			if itemobj then
 				mf.title_name:SetText(itemobj.name)
+				mf.title_id:SetText(itemobj.id)
 				mf.eb_mindkp:SetNumber(itemobj.mindkp)
 			else
 				mf.title_name:SetText('')
+				mf.title_id:SetText('')
 				mf.eb_mindkp:SetNumber(0)
 			end
 		end
 		
-		function mf:RefreshItemListIndex()
-			if mf.previtemlistcount ~= #mf.items then
-				table.wipe(mf.ItemListIndex)
-				mf.previtemlistcount = #mf.items
-				local obj, previ
-				for i = 1, #mf.items do
-					tinsert(mf.ItemListIndex, i)
+		--mf.ListIndex is a list of itemidxs
+		function mf:RefreshListIndex()
+			if mf.previtemlistcount ~= fRaid.Item.GetCount() then
+				mf.previtemlistcount = fRaid.Item.GetCount()
+				wipe(mf.ListIndex)
+				--copy the ItemListIndex
+				for _, itemidx in pairs(fRaid.db.global.ItemListIndex) do
+					tinsert(mf.ListIndex, itemidx)
 				end
 				
-				local max = #mf.ItemListIndex - mf.availablerows + 1
+				local max = #mf.ListIndex - mf.availablerows + 1
+				if max < 1 then
+					max = 1
+				end
+				mf.slider:SetMinMaxValues(1, max)
+				mf:Sort(mf.prevsortcol)
+				
+				mf.title_total:SetText(fRaid.Item.GetCount())
+			end
+			--[[
+			if mf.previtemlistcount ~= #fRaid.db.global.ItemList then
+				table.wipe(mf.ListIndex)
+				mf.previtemlistcount = #fRaid.db.global.ItemList
+				local obj, previ
+				for i = 1, #fRaid.db.global.ItemList do
+					tinsert(mf.ListIndex, i)
+				end
+				
+				local max = #mf.ListIndex - mf.availablerows + 1
 				if max < 1 then
 					max = 1
 				end
 				mf.slider:SetMinMaxValues(1, max)
 				mf:Sort(mf.prevsortcol)
 			end
+			--]]
 		end
 
-		--a and b are indexes in ItemListIndex
+		--a and b are indexes for ItemList
 		mf.sortkeeper = {
-			{asc = false, issorted = false},
-			{asc = false, issorted = false},
-			{asc = false, issorted = false},
-			{asc = false, issorted = false}
+			{asc = false, dosort = false},
+			{asc = false, dosort = false},
+			{asc = false, dosort = false},
+			--{asc = false, issorted = false}
 		}
 		function mf.lootcomparer(a, b)
 			if a== nil or b == nil then
@@ -523,65 +590,74 @@ function fRaid.Item.View()
 			end
 			
 			--retrieving itemobj
-			local aobj = fRaid.db.global.ItemList[a]
-			local bobj = fRaid.db.global.ItemList[b]
+			local aobj = fRaid.Item.GetObjectByIndex(a)--fRaid.db.global.ItemList[a]
+			local bobj = fRaid.Item.GetObjectByIndex(b)--fRaid.db.global.ItemList[b]
 			
 			local SORT = 1
 			local SORT_ASC = false
 			for idx,keeper in ipairs(mf.sortkeeper) do
-				if keeper.issorted then
+				if keeper.dosort then
 					SORT = idx
 					SORT_ASC = keeper.asc
 				end
 			end
 			
 			local ret = true
-			if SORT == 4 then
-				ret = aobj.id > bobj.id
-			elseif SORT == 3 then
+			if SORT == 3 then
 				if aobj.rarity == bobj.rarity then
-					ret = aobj.name > bobj.name
+					SORT_ASC = mf.sortkeeper[1].asc
+					ret = aobj.name < bobj.name
 				else
 					ret = aobj.rarity < bobj.rarity
 				end
 			elseif SORT == 2 then
 				if aobj.mindkp == bobj.mindkp then
-					if aobj.rarity == bobj.rarity then
-						ret = aobj.name > bobj.name
-					else
+					if aobj.name == bobj.name then
+						SORT_ASC = mf.sortkeeper[3].asc
 						ret = aobj.rarity < bobj.rarity
-					end		
+					else
+						SORT_ASC = mf.sortkeeper[1].asc
+						ret = aobj.name < bobj.name
+					end
 				else
-					ret = aobj.mindkp < bobj.mindkp
+					ret = aobj.mindkp > bobj.mindkp
 				end
 			else
+				if aobj.name == bobj.name then
+					SORT_ASC = mf.sortkeeper[3].asc
+					ret = aobj.rarity < bobj.rarity
+				else
+					ret = aobj.name < bobj.name
+				end
+				--[[
 				if aobj.rarity == bobj.rarity then
 					ret = aobj.name > bobj.name
 				else
-					ret = aobj.rarity < bobj.rarity
+					SORT_ASC = mf.sortkeeper[3].asc
+					ret = aobj.rarity > bobj.rarity
 				end
+				--]]
 			end
 			
 			if SORT_ASC then
-				return not ret
-			else
 				return ret
+			else
+				return not ret
 			end
 		end
 		
 		function mf:Sort(colnum)
-			if mf.sortkeeper[colnum].issorted then
-				mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
-				table.sort(fRaid.GUI2.ItemFrame.ItemListIndex, mf.lootcomparer)
-			else
-				mf.prevsortcol = colnum
-				mf.sortkeeper[colnum].asc = true
+			mf.prevsortcol = colnum
+			mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
+			
+			if not mf.sortkeeper[colnum].issorted then
 				for idx,keeper in ipairs(mf.sortkeeper) do
-					keeper.issorted = false
+					keeper.dosort = false
 				end
-				mf.sortkeeper[colnum].issorted = true
-				table.sort(fRaid.GUI2.ItemFrame.ItemListIndex, mf.lootcomparer)
+				mf.sortkeeper[colnum].dosort = true
 			end
+			
+			table.sort(fRaid.GUI2.ItemFrame.ListIndex, mf.lootcomparer)
 		end
 
 		function mf:LoadRows(startingindexnum)
@@ -621,7 +697,7 @@ function fRaid.Item.View()
 					mf.columnframes[1].cells[i]:SetText('')
 					mf.columnframes[2].cells[i]:SetText('')
 					mf.columnframes[3].cells[i]:SetText('')
-					mf.columnframes[4].cells[i]:SetText('')
+					--mf.columnframes[4].cells[i]:SetText('')
 					
 					mf.rowbuttons[i]:Hide()
 					mf.rowbuttons[i].indexnum = 0
@@ -631,7 +707,7 @@ function fRaid.Item.View()
 					mf.columnframes[1].cells[i]:SetText(itemobj.link)
 					mf.columnframes[2].cells[i]:SetText(itemobj.mindkp)
 					mf.columnframes[3].cells[i]:SetText(itemobj.rarity)
-					mf.columnframes[4].cells[i]:SetText(itemobj.id)
+					--mf.columnframes[4].cells[i]:SetText(itemobj.id)
 					
 					--attach correct indexnum to rowbutton
 					mf.rowbuttons[i]:Show()

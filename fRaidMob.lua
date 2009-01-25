@@ -27,15 +27,3 @@ function fRaidMob.Add(mobname, location)
 		dkp = 0,
 	})
 end
-
---TODO: award dkp to raid if mob is in moblist
-function fRaidMob.Scan(eventName, _, event, _, _, _, _, mob)
-	if event ~= "UNIT_DIED" then return end
-	if mob then
-		--save it
-		--fRaidMob.Add(mob, GetRealZoneText())
-		
-		--award dkp popup if in raid
-		
-	end
-end
