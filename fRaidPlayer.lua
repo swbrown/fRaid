@@ -1,4 +1,4 @@
-﻿-- Author      : Jessica Chen Huang
+-- Author      : Jessica Chen Huang
 -- Create Date : 1/5/2009 12:01:19 PM
 
 --fRaid.db.global.CurrentRaid
@@ -197,7 +197,7 @@ function fRaidPlayer:AddDKP(name, amount, note)
 	end
 	DKPLIST.ChangeDkp(ix, newamount, note)
 	local newobj = DKPLIST.GetPlayer(ix)
-	local msg = 'Prev Dkp: ' .. obj.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. newobj.dkp
+	local msg = newobj.name .. ' - Prev Dkp: ' .. obj.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. newobj.dkp
 	fRaid:Print('UPDATE: ' .. msg)
 	fRaid:Whisper(newobj.name, msg)
 end
@@ -224,7 +224,8 @@ function fRaidPlayer:AddDKPToRaid(amount, includelistedplayers)
 	if includelistedplayers then
 		if fList then
 			if fList.CURRENTLIST.IsListOpen() then
-				for idx,info in ipairs(fList.CURRENTLIST.GetList()) do
+				for idx,info in ipairs(fList.CURRENTLIST.GetPlayers()) do
+					name = info.name
 					self:AddDKP(name, amount/2)
 				end
 				fRaid:Print("DKP added to list")
@@ -325,12 +326,12 @@ function fRaidPlayer.View()
 		--create ui elements
 		
 		--table with 3 columns
-		--Name, Dkp, Attendance, Progression Attendance
+		--Name, Dkp, Role, Attendance, Progression Attendance, Id
 		
 		
 		mf.columnframes = {}	
 		local currentframe	
-		for i = 1, 4 do
+		for i = 1, 6 do
 			currentframe = fLibGUI.CreateClearFrame(mf)
 			tinsert(mf.columnframes, currentframe)
 			
@@ -385,10 +386,14 @@ function fRaidPlayer.View()
 		mf.columnframes[1]:SetWidth(125)
 		mf.columnframes[2].headerbutton:SetText('Dkp')
 		mf.columnframes[2]:SetWidth(50)
-		mf.columnframes[3].headerbutton:SetText('Att')
+		mf.columnframes[3].headerbutton:SetText('Role')
 		mf.columnframes[3]:SetWidth(75)
-		mf.columnframes[4].headerbutton:SetText('Prog')
-		mf.columnframes[4]:SetWidth(75)
+		mf.columnframes[4].headerbutton:SetText('Att')
+		mf.columnframes[4]:SetWidth(50)
+		mf.columnframes[5].headerbutton:SetText('Prog')
+		mf.columnframes[5]:SetWidth(50)
+		mf.columnframes[6].headerbutton:SetText('Id')
+		mf.columnframes[6]:SetWidth(50)
 		
 		
 		--rowbutton for each row
@@ -575,6 +580,27 @@ function fRaidPlayer.View()
 		mf.title_dkp:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 		mf.title_dkp:SetText('')
 		
+		ui = fLibGUI.CreateLabel(mf)
+		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
+		ui:SetText('Role:')
+		prevui = ui
+		
+		mf.eb_role = fLibGUI.CreateEditBox2(mf, '#')
+		mf.eb_role:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+		mf.eb_role:SetText('')
+		mf.eb_role:SetScript('OnEnterPressed', function() 
+			local itemnum, itemobj = mf:SelectedData()
+			if itemobj then
+				itemobj.role = this:GetText()
+			end
+			
+			this:ClearFocus()
+			this:SetText(itemobj.role)
+			
+			--refresh row (just going to refresh entire table)
+			mf:Refresh()
+		end)
+		
 		--separator
 		ui = fLibGUI.CreateSeparator(mf)
 		ui:SetWidth(1)
@@ -663,7 +689,10 @@ function fRaidPlayer.View()
 				mf.prevlistcount = #mf.items
 				local obj, previ
 				for i = 1, #mf.items do
-					tinsert(mf.ListIndex, i)
+					obj = mf.items[i]
+					if obj.valid then
+						tinsert(mf.ListIndex, i)
+					end
 				end
 				
 				local max = #mf.ListIndex - mf.availablerows + 1
@@ -678,6 +707,8 @@ function fRaidPlayer.View()
 
 		--a and b are indexes in ListIndex
 		mf.sortkeeper = {
+			{asc = false, issorted = false},
+			{asc = false, issorted = false},
 			{asc = false, issorted = false},
 			{asc = false, issorted = false},
 			{asc = false, issorted = false},
@@ -722,6 +753,8 @@ function fRaidPlayer.View()
 				else
 					ret = aobj.dkp < bobj.dkp
 				end
+			elseif SORT == 6 then
+				ret = a > b
 			else
 				ret = aobj.name > bobj.name
 			end
@@ -786,6 +819,8 @@ function fRaidPlayer.View()
 					mf.columnframes[2].cells[i]:SetText('')
 					mf.columnframes[3].cells[i]:SetText('')
 					mf.columnframes[4].cells[i]:SetText('')
+					mf.columnframes[5].cells[i]:SetText('')
+					mf.columnframes[6].cells[i]:SetText('')
 					
 					mf.rowbuttons[i]:Hide()
 					mf.rowbuttons[i].indexnum = 0
@@ -794,8 +829,10 @@ function fRaidPlayer.View()
 					--local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemobj.id)
 					mf.columnframes[1].cells[i]:SetText(itemobj.name)
 					mf.columnframes[2].cells[i]:SetText(itemobj.dkp)
-					mf.columnframes[3].cells[i]:SetText('')
+					mf.columnframes[3].cells[i]:SetText(itemobj.role)
 					mf.columnframes[4].cells[i]:SetText('')
+					mf.columnframes[5].cells[i]:SetText('')
+					mf.columnframes[6].cells[i]:SetText(indexnum)
 					
 					--attach correct indexnum to rowbutton
 					mf.rowbuttons[i]:Show()

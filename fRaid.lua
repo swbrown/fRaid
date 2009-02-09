@@ -386,7 +386,7 @@ function addon:CreateGUI()
 	eb:SetNumber(0)
 	eb:SetScript('OnEnterPressed', function() 
 		if eb:GetNumber() > 0 then
-			fRaidPlayer:AddDKPToRaid(eb:GetNumber())
+			fRaidPlayer:AddDKPToRaid(eb:GetNumber(), true)
 		end
 		this:ClearFocus()
 		eb:SetNumber(0)

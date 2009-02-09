@@ -3,6 +3,8 @@
 
 --fRaid.db.global.CurrentRaid
 --fRaid.db.global.ItemList
+--fRaid.db.globa.ItemListIndex
+--fRaid.db.global.ItemListIndexCount
 --fRaid.GUI2.ItemFrame
 
 fRaid.Item = {}
@@ -10,7 +12,7 @@ fRaid.Item = {}
 --retrieves index of the itemobj with itemid
 function fRaid.Item.ItemIdToIndex(itemid)
 	if not fRaid.db.global.ItemListIndex then
-		fRaid.db.global.ItemListIndex = {}
+		fRaid.Item.RefreshIndex()
 	else
 		return fRaid.db.global.ItemListIndex[itemid]
 	end
@@ -111,51 +113,11 @@ function fRaid.Item.RemoveById(itemid)
 	end
 end
 
---[[
---arg can be an item id (number) or item link (string)
-function fRaid.Item.Add(arg)
-	local items = fRaid.db.global.ItemList
-	
-	--extract id
-	local id = tonumber(arg)
-	if not id and type(arg) == 'string' then
-		id = fRaid:ExtractItemId(arg)
-	else
-		error('Invalid arg.  fRaid.Item.Add(arg).  arg should be item id (number) or item link(string)')
-	end
-	
-	--check to see if its already saved
-	for idx,info in ipairs(items) do
-		if info.id == id then
-			--don't save
-			fRaid:Debug('item '..id..' already exists')
-			return
-		end
-	end
-	
-	--save
-	local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(id)
-
-	fRaid:Print('Saving '..itemLink)
-	tinsert(items, {
-		id = id,
-		name = itemName,
-		link = itemLink,
-		rarity = itemRarity,
-		mindkp = 0,
-		maxdkp = 0,
-	})
-	fRaid.GUI2.ItemFrame:Refresh()
-end
---]]
-
-
 --add items in the currently open loot window
 function fRaid.Item.Scan()
 	for i = 1, GetNumLootItems() do
 		if LootSlotIsItem(i) then
 			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
-			--fRaid.Item.Add(GetLootSlotLink(i))
 			fRaid.Item.GetObjectByLink(GetLootSlotLink(i), true)
 		end
 	end
