@@ -331,7 +331,7 @@ function fRaidPlayer.View()
 		
 		mf.columnframes = {}	
 		local currentframe	
-		for i = 1, 6 do
+		for i = 1, 7 do
 			currentframe = fLibGUI.CreateClearFrame(mf)
 			tinsert(mf.columnframes, currentframe)
 			
@@ -386,14 +386,16 @@ function fRaidPlayer.View()
 		mf.columnframes[1]:SetWidth(125)
 		mf.columnframes[2].headerbutton:SetText('Dkp')
 		mf.columnframes[2]:SetWidth(50)
-		mf.columnframes[3].headerbutton:SetText('Role')
-		mf.columnframes[3]:SetWidth(75)
-		mf.columnframes[4].headerbutton:SetText('Att')
-		mf.columnframes[4]:SetWidth(50)
-		mf.columnframes[5].headerbutton:SetText('Prog')
+		mf.columnframes[3].headerbutton:SetText('Dkp')
+		mf.columnframes[3]:SetWidth(50)
+		mf.columnframes[4].headerbutton:SetText('Role')
+		mf.columnframes[4]:SetWidth(75)
+		mf.columnframes[5].headerbutton:SetText('Att')
 		mf.columnframes[5]:SetWidth(50)
-		mf.columnframes[6].headerbutton:SetText('Id')
+		mf.columnframes[6].headerbutton:SetText('Prog')
 		mf.columnframes[6]:SetWidth(50)
+		mf.columnframes[7].headerbutton:SetText('Id')
+		mf.columnframes[7]:SetWidth(50)
 		
 		
 		--rowbutton for each row
@@ -683,8 +685,8 @@ function fRaidPlayer.View()
 			end
 		end
 		
-		function mf:RefreshListIndex()
-			if mf.prevlistcount ~= #mf.items then
+		function mf:RefreshListIndex(force)
+			if mf.prevlistcount ~= #mf.items or force then
 				table.wipe(mf.ListIndex)
 				mf.prevlistcount = #mf.items
 				local obj, previ
@@ -821,6 +823,7 @@ function fRaidPlayer.View()
 					mf.columnframes[4].cells[i]:SetText('')
 					mf.columnframes[5].cells[i]:SetText('')
 					mf.columnframes[6].cells[i]:SetText('')
+					mf.columnframes[7].cells[i]:SetText('')
 					
 					mf.rowbuttons[i]:Hide()
 					mf.rowbuttons[i].indexnum = 0
@@ -829,10 +832,11 @@ function fRaidPlayer.View()
 					--local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemobj.id)
 					mf.columnframes[1].cells[i]:SetText(itemobj.name)
 					mf.columnframes[2].cells[i]:SetText(itemobj.dkp)
-					mf.columnframes[3].cells[i]:SetText(itemobj.role)
-					mf.columnframes[4].cells[i]:SetText('')
+					mf.columnframes[3].cells[i]:SetText(itemobj.rank)
+					mf.columnframes[4].cells[i]:SetText(itemobj.role)
 					mf.columnframes[5].cells[i]:SetText('')
-					mf.columnframes[6].cells[i]:SetText(indexnum)
+					mf.columnframes[6].cells[i]:SetText('')
+					mf.columnframes[7].cells[i]:SetText(indexnum)
 					
 					--attach correct indexnum to rowbutton
 					mf.rowbuttons[i]:Show()
