@@ -1,3 +1,6 @@
+scratch some of this idea, causes problems when wanting to syc with other peoples
+let's start a new idea
+
 static list - if a list is specified as static, that means items are never removed
 	or sorted, so the idx of the item in the list will always be the same
 

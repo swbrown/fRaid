@@ -180,6 +180,8 @@ function addon:OnInitialize()
 	self:RegisterEvent('PLAYER_REGEN_DISABLED')
 	self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED')
 	
+	self:RegisterEvent('RAID_ROSTER_UPDATE')
+	--self:RegisterEvent('RAID_TARGET_UPDATE')
 	
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter2)
@@ -278,6 +280,11 @@ end
 function addon:PLAYER_GUILD_UPDATE(...)
 	print('<<PLAYER_GUILD_UPDATE>>')
 	print(...)
+end
+
+function addon:RAID_ROSTER_UPDATE(...)
+	print(...)
+	fRaid.Raid.RAID_ROSTER_UPDATE()
 end
 
 --======================================================================================
