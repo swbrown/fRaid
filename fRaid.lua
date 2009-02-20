@@ -207,6 +207,7 @@ end
 --==================================================================================================
 --Events
 --CHAT_MSG_WHISPER handler
+--handles incoming whispers
 function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	msg = strlower(strtrim(msg))
 	author = strlower(author)
