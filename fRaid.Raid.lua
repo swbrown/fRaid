@@ -9,8 +9,8 @@ fRaid.Raid = {}
 fRaid.Raid.IsInRaid = false
 
 function fRaid.Raid.RAID_ROSTER_UPDATE()
-	if fRaid.db.global.CurrentRaid then --currently tracking a raid
-		if UnitInRaid('player') then
+    if fRaid.db.global.CurrentRaid then --currently tracking a raid
+        if UnitInRaid('player') then
 			--update attendance
 			fRaid.Raid.TrackRaiders()
 		else

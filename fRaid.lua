@@ -6,7 +6,6 @@
 --AceConfig-3.0
 --AceConfigDialog-3.0
 
-
 fRaid = LibStub("AceAddon-3.0"):NewAddon("fRaid", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "fLib")
 local addon = fRaid
 local NAME = 'fRaid'
