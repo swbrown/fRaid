@@ -25,7 +25,7 @@ function fRaid.Instance.GetObject(zonename, createnew)
         obj = {}
         fRaid.db.global.InstanceList[zonename] = obj
         fRaid.db.global.Instance.Count = fRaid.db.global.Instance.Count + 1
-        fRaid.db.global.Instance.LastModified = date('!%y/%m/%d %H:%M:%S') --UTC time
+        fRaid.db.global.Instance.LastModified = fLib.GetTimestamp()  
     end
     return obj
 end
