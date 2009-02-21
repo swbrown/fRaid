@@ -50,7 +50,7 @@ function fRaid.Raid.Start()
     end
 end
 
-function fRaidBid.Raid.Stop()
+function fRaid.Raid.Stop()
     --archive CurrentRaid
     fRaidBid.db.global.CurrentRaid = nil
     
