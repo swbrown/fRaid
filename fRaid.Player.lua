@@ -209,12 +209,92 @@ function fRaid.Player.WhisperDkp(cmd, whispertarget)
 end
 
 --==================================================================================================
+--columns...
+--	width, user set
+--	height, user set
+--	colcount, user set
+--	mincolwidth, optional user set
 
-function fRaidPlayer.View()
+local function CreateColumns(parent, width, height, colcount, mincolwidth)
+    --arg checks
+    if not width or width < 40 then
+        width = 40
+    end
+    if not height or height < 40 then
+        height = 40
+    end
+    if not colcount or colcount < 1 then
+    	colcount = 1
+    end
+    if not mincolwidth or mincolwidth < 20 then
+    	mincolwidth = 20
+    end
+    
+
+    local cframes = {}
+    local currentframe    
+    for i = 1, colcount do
+        currentframe = fLibGUI.CreateClearFrame(parent)
+        tinsert(cframes, currentframe)
+        
+        currentframe.enable = true
+        
+        currentframe:SetHeight(height)
+        currentframe:SetResizable(true)
+        currentframe:SetMinResize(mf.mincolwidth, mf.mincolheight)
+        
+        --header button
+        ui = fLibGUI.CreateActionButton(currentframe)
+        currentframe.headerbutton = ui
+        ui.colnum = i
+        ui:GetFontString():SetJustifyH('LEFT')
+        ui:SetHeight(mf.rowheight)
+        ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
+        ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -4, 0)
+        ui:SetScript('OnClick', function()
+        mf:Sort(this.colnum)
+        mf:LoadRows()
+        end)            
+        
+        --resize button
+        ui = fLibGUI.CreateActionButton(currentframe)
+        currentframe.resizebutton = ui
+        ui:GetFontString():SetJustifyH('LEFT')
+        ui:SetWidth(4)
+        ui:SetHeight(mf.mincolheight)
+        ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', 0,0)
+        ui:RegisterForDrag('LeftButton')
+        
+        ui:SetScript('OnDragStart', function(this, button)
+            this:GetParent():StartSizing('RIGHT')
+            this.highlight:Show()
+            end)
+                ui:SetScript('OnDragStop', function(this, button)
+                    this:GetParent():StopMovingOrSizing()
+                    this.highlight:Hide()
+                    mf:ResetColumnFramePoints()
+                end)
+                
+                --cell labels
+                currentframe.cells = {}
+                for j = 1, mf.availablerows do
+                ui = fLibGUI.CreateLabel(currentframe)
+                tinsert(currentframe.cells, ui)
+                ui:SetJustifyH('LEFT')
+                end
+                end
+
+end 
+
+--rows...
+--	rowheight, default set
+--	rowcount, calculated based on height and rowheight?
+
+function fRaid.Player.View()
     local mf = fRaid.GUI2.PlayerFrame
 
     if not mf.viewedonce then
-    --[[
+    
         local ui, prevui
         mf.rowheight = 12
         mf.startingrow = 1
@@ -243,7 +323,7 @@ function fRaidPlayer.View()
             itemobj = mf.items[itemnum]
             return itemnum, itemobj
         end
-        
+    
         --create ui elements
         
         --table with 3 columns
@@ -368,7 +448,7 @@ function fRaidPlayer.View()
     			ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
     			ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
 			end
-		end
+		end	
 
 		--function for resizing columns
 		function mf:ResetColumnFramePoints()
@@ -759,7 +839,7 @@ function fRaidPlayer.View()
                         mf.rowbuttons[i].highlightspecial:Show()
                         selectedindexfound = true
                     else
-                    m   f.rowbuttons[i].highlightspecial:Hide()
+                        f.rowbuttons[i].highlightspecial:Hide()
                     end
                 end
                 indexnum = indexnum + 1
@@ -769,12 +849,11 @@ function fRaidPlayer.View()
                 mf.selectedindexnum = 0
                 mf:RefreshDetails()
             end
-        end--]]
+        end
             
         mf.viewedonce = true
     end
 
     mf:Refresh()
     mf:Show()
-    --]]
 end
