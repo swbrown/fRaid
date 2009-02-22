@@ -215,6 +215,8 @@ end
 --	colcount, user set
 --	mincolwidth, optional user set
 
+--returns a ColumnsObject - colcount frames belonging to parent
+--width, height, mincolwidth
 local function CreateColumns(parent, width, height, colcount, mincolwidth)
     --arg checks
     if not width or width < 40 then
@@ -231,29 +233,45 @@ local function CreateColumns(parent, width, height, colcount, mincolwidth)
     end
     
 
-    local cframes = {}
+    local cobj = {}
+    cobj.width = width
+    cobj.height =  height
+    cobj.mincolwidth = mincolwidth
+    
+    cobj.headerheight = 12
+    cobj.rowheight = 12
+    
+    --calculate rowcount
+    --floor((height - headerheight - 1 - bottompadding?) / 12)
+    cobj.rowcount = floor((height - cobj.headerheight - 1 - 4) / cobj.rowheight)
+    
     local currentframe    
     for i = 1, colcount do
         currentframe = fLibGUI.CreateClearFrame(parent)
-        tinsert(cframes, currentframe)
+        tinsert(cobj, currentframe)
         
         currentframe.enable = true
         
         currentframe:SetHeight(height)
         currentframe:SetResizable(true)
-        currentframe:SetMinResize(mf.mincolwidth, mf.mincolheight)
+        currentframe:SetMinResize(mincolwidth, height)
         
         --header button
         ui = fLibGUI.CreateActionButton(currentframe)
         currentframe.headerbutton = ui
         ui.colnum = i
         ui:GetFontString():SetJustifyH('LEFT')
-        ui:SetHeight(mf.rowheight)
+        ui:SetHeight(cobj.headerheight)
         ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
         ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -4, 0)
         ui:SetScript('OnClick', function()
-        mf:Sort(this.colnum)
-        mf:LoadRows()
+            local p = this:GetParent():GetParent()
+            if p and p.Sort and p.LoadRows then
+                p:Sort(this.colnum)
+                this:LoadRows()
+            end
+            --mf:Sort(this.colnum)
+            --mf:LoadRows()
         end)            
         
         --resize button
@@ -261,34 +279,87 @@ local function CreateColumns(parent, width, height, colcount, mincolwidth)
         currentframe.resizebutton = ui
         ui:GetFontString():SetJustifyH('LEFT')
         ui:SetWidth(4)
-        ui:SetHeight(mf.mincolheight)
+        ui:SetHeight(height)
         ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', 0,0)
         ui:RegisterForDrag('LeftButton')
         
         ui:SetScript('OnDragStart', function(this, button)
             this:GetParent():StartSizing('RIGHT')
             this.highlight:Show()
-            end)
-                ui:SetScript('OnDragStop', function(this, button)
-                    this:GetParent():StopMovingOrSizing()
-                    this.highlight:Hide()
-                    mf:ResetColumnFramePoints()
-                end)
+        end)
+        ui:SetScript('OnDragStop', function(this, button)
+            this:GetParent():StopMovingOrSizing()
+            this.highlight:Hide()
+            mf:ResetColumnFramePoints()
+        end)
                 
-                --cell labels
-                currentframe.cells = {}
-                for j = 1, mf.availablerows do
-                ui = fLibGUI.CreateLabel(currentframe)
-                tinsert(currentframe.cells, ui)
-                ui:SetJustifyH('LEFT')
-                end
-                end
-
-end 
+        --cells
+        currentframe.cells = {}
+        for j = 1, cobj.rowcount do
+            ui = fLibGUI.CreateLabel(currentframe)
+            tinsert(currentframe.cells, ui)
+            ui:SetJustifyH('LEFT')
+        end
+    end
+end
 
 --rows...
---	rowheight, default set
---	rowcount, calculated based on height and rowheight?
+--  width, user set
+--  height, user set
+--  rowcount, user set
+local function CreateRows(parent, width, height)
+    --rowbutton for each row
+    mf.rowbuttons = {}
+    local rowoffset = 0
+    for i = 1, mf.availablerows do
+        rowoffset = mf.rowheight * i + i
+        
+        --separator
+        ui = fLibGUI.CreateSeparator(mf)
+        ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - rowoffset)
+        ui:SetWidth(mf.maxwidth)
+        
+        --rowbutton
+        ui = fLibGUI.CreateActionButton(mf)
+        tinsert(mf.rowbuttons, ui)
+        
+        ui.indexnum = 0
+        
+        ui:SetFrameLevel(4)
+        ui:GetFontString():SetJustifyH('LEFT')
+        ui:SetHeight(mf.rowheight)
+        ui:SetWidth(mf.maxwidth)
+        ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -6-rowoffset)
+        
+        ui.highlightspecial = ui:CreateTexture(nil, "BACKGROUND")
+        ui.highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+        ui.highlightspecial:SetBlendMode("ADD")
+        ui.highlightspecial:SetAllPoints(ui)
+        ui.highlightspecial:Hide()
+        
+        ui:SetScript('OnClick', function()
+            --unselect all the other rows
+            for i = 1, mf.availablerows do
+                mf.rowbuttons[i].highlightspecial:Hide()
+            end
+            
+            --select this row
+            this.highlightspecial:Show()
+            mf.selectedindexnum = this.indexnum
+            
+            --fill in details
+            mf:RefreshDetails()
+        end)
+        
+        --cell location for each column
+        for j = 1, #mf.columnframes do
+            currentframe = mf.columnframes[j]
+            ui = currentframe.cells[i]
+            ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
+            ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
+        end
+    end 
+end
 
 function fRaid.Player.View()
     local mf = fRaid.GUI2.PlayerFrame
@@ -296,14 +367,14 @@ function fRaid.Player.View()
     if not mf.viewedonce then
     
         local ui, prevui
-        mf.rowheight = 12
+        --mf.rowheight = 12
         mf.startingrow = 1
-        mf.availablerows = 15
+        --mf.availablerows = 15
         
-        mf.mincolwidth = 20
-        mf.mincolheight = mf.rowheight * mf.availablerows + mf.availablerows + mf.rowheight
+        --mf.mincolwidth = 20
+        --mf.mincolheight = mf.rowheight * mf.availablerows + mf.availablerows + mf.rowheight
         --#rows times height of each row plus 1 for each separator plus header row
-        mf.maxwidth = mf:GetWidth() - 25
+        --mf.maxwidth = mf:GetWidth() - 25
         
         mf.items = fRaid.db.global.PlayerList
         --create ListIndex
@@ -325,63 +396,10 @@ function fRaid.Player.View()
         end
     
         --create ui elements
-        
-        --table with 3 columns
         --Name, Dkp, Role, Attendance, Progression Attendance, Id
         
         
-        mf.columnframes = {}	
-        local currentframe	
-        for i = 1, 7 do
-            currentframe = fLibGUI.CreateClearFrame(mf)
-            tinsert(mf.columnframes, currentframe)
-            
-            currentframe.enable = true
-            
-            currentframe:SetHeight(mf.mincolheight)
-            currentframe:SetResizable(true)
-            currentframe:SetMinResize(mf.mincolwidth, mf.mincolheight)
-            
-            --header button
-            ui = fLibGUI.CreateActionButton(currentframe)
-            currentframe.headerbutton = ui
-            ui.colnum = i
-            ui:GetFontString():SetJustifyH('LEFT')
-            ui:SetHeight(mf.rowheight)
-            ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
-            ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -4, 0)
-            ui:SetScript('OnClick', function()
-            	mf:Sort(this.colnum)
-            	mf:LoadRows()
-        	end)			
-	
-        	--resize button
-        	ui = fLibGUI.CreateActionButton(currentframe)
-        	currentframe.resizebutton = ui
-        	ui:GetFontString():SetJustifyH('LEFT')
-        	ui:SetWidth(4)
-        	ui:SetHeight(mf.mincolheight)
-        	ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', 0,0)
-        	ui:RegisterForDrag('LeftButton')
-        	
-        	ui:SetScript('OnDragStart', function(this, button)
-        		this:GetParent():StartSizing('RIGHT')
-        		this.highlight:Show()
-            end)
-            ui:SetScript('OnDragStop', function(this, button)
-                this:GetParent():StopMovingOrSizing()
-                this.highlight:Hide()
-                mf:ResetColumnFramePoints()
-            end)
-			
-			--cell labels
-			currentframe.cells = {}
-			for j = 1, mf.availablerows do
-    			ui = fLibGUI.CreateLabel(currentframe)
-    			tinsert(currentframe.cells, ui)
-    			ui:SetJustifyH('LEFT')
-			end
-		end
+        mf.columnframes = CreateColumns(mf, mf:GetWidth() - 25, mf:GetHeight() - 25, 7)
 		
 		mf.columnframes[1].headerbutton:SetText('Name')
 		mf.columnframes[1]:SetWidth(125)
