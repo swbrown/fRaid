@@ -21,11 +21,15 @@
 --fRaid.GUI2.PlayerFrame
 
 fRaid.Player = {}
-fRaid.Player.PlayerList = fRaid.db.global.Player.PlayerList
-fRaid.Player.ChangeList = fRaid.db.global.Player.ChangeList[UnitName('player')] or {}
 
 local LIST = {} --table to hold functions
 fRaid.Player.LIST = LIST
+
+function fRaid.Player.OnInitialize()
+    if not fRaid.db.global.Player.ChangeList[UnitName('player')] then
+        fRaid.db.global.Player.ChangeList[UnitName('player')] = {}
+    end
+end
 
 --TODO: find out info about name, class, guild, online
 function fRaid.Player.Scan(name)
@@ -39,7 +43,7 @@ end
 --returns a copy of playerobj
 function LIST.GetPlayer(name, createnew)
     --may want to format name ? fRaid:Capitalize(strlower(strtrim(name)))
-    local obj = fRaid.Player.PlayerList[name]
+    local obj = fRaid.db.global.Player.PlayerList[name]
     if createnew and not obj then
         obj = {
             dkp = 0,
@@ -47,12 +51,12 @@ function LIST.GetPlayer(name, createnew)
             class = '',
             role = '', --dps, heal, tank?                    
         }
-        fRaid.Player.PlayerList[name] = obj --add player
+        fRaid.db.global.Player.PlayerList[name] = obj --add player
         fRaid.db.global.Player.Count = fRaid.db.global.Player.Count + 1
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.Player.ChangeList, {name, 'new', '', fRaid.db.global.Player.LastModified})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'new', '', fRaid.db.global.Player.LastModified})
         
         fRaid:Print('Added new player ' .. name)
     end
@@ -68,27 +72,27 @@ end
 
 --removes the player
 function LIST.DeletePlayer(name, note)
-    local obj = fRaid.Player.PlayerList[name]
+    local obj = fRaid.db.global.Player.PlayerList[name]
     if obj then
         --delete
-        fRaid.Player.PlayerList[name] = nil
+        fRaid.db.global.Player.PlayerList[name] = nil
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.Player.ChangeList, {name, 'delete', note, fRaid.db.global.Player.LastModified, obj})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'delete', note, fRaid.db.global.Player.LastModified, obj})
     end
 end
 
 --set the player's dkp
 function LIST.SetDkp(name, dkp, note)
-    local obj = fRaid.Player.PlayerList[name]
+    local obj = fRaid.db.global.Player.PlayerList[name]
     if obj and obj.dkp ~= dkp then
         local olddkp = obj.dkp
         obj.dkp = dkp
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.Player.ChageList, {name, 'dkp', note, fRaid.db.global.Player.LastModified, olddkp, obj.dkp})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'dkp', note, fRaid.db.global.Player.LastModified, olddkp, obj.dkp})
     end
 end
 
@@ -214,6 +218,7 @@ end
 --==================================================================================================
 local TT = {}
 TT.private = {}
+fRaid.Player.TT = TT
 
 --returns a tableobj
 --a tableobj is a frame with these properties
@@ -229,6 +234,8 @@ TT.private = {}
 --  scrollbarwidth
 function TT.CreateTable(parentframe, width, height, colcount)
 	local t = fLibGUI.CreateClearFrame(parentframe)
+    
+TT.try1 = t
 
 	t.width = width
 	t.height = height
@@ -249,16 +256,23 @@ function TT.CreateTable(parentframe, width, height, colcount)
 	t.startingindex = 1
 	t.selectedindex = 0
 	t.selectedcolnum = 1
-	t.count = 0
+	--t.count = 0
 	
+	t:SetPoint('TOPLEFT', 0, 0)
+	t:SetWidth(t.width)
+	t:SetHeight(t.height)
+	
+	--helper funcs to create my table
 	TT.CreateColumns(t)
 	TT.CreateRows(t)
 	TT.CreateSeparators(t)
 	TT.CreateCells(t)
 	TT.CreateScrollBar(t)
 	TT.SetUIPoints(t)
-	TT.ResetColumnFramePoints(t)
 	
+	t:ResetColumnFramePoints()
+	
+	--list of func,args to be called
 	t.headerclickactions = {}
 	t.rowclickactions = {}
 	t.scrollactions = {}
@@ -283,6 +297,7 @@ function TT.CreateColumns(t)
         currentframe.table = t        
         currentframe.enable = true
         
+        currentframe:SetWidth(t.mincolwidth)
         currentframe:SetHeight(t.height)
         currentframe:SetResizable(true)
         currentframe:SetMinResize(t.mincolwidth, t.height)
@@ -300,17 +315,17 @@ function TT.CreateColumns(t)
         ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -t.resizebuttonwidth, 0)
         ui:SetScript('OnClick', function()
             this.table.selectedcolnum = this.colnum
-            for idx, func in ipairs(this.table.headerclickactions) do
-                func(this.table)
+            --call extra actions
+            for z = 1, #this.table.headerclickactions do
+                this.table.headerclickactions[z][1](unpack(this.table.headerclickactions[z][2]))
             end
-            
         end)            
         
         --resize button
         ui = fLibGUI.CreateActionButton(currentframe)
         currentframe.resizebutton = ui
         
-        --ui.table = t --not used by anything yet
+        ui.table = t
         
         ui:GetFontString():SetJustifyH('LEFT')
         ui:SetWidth(t.resizebuttonwidth)
@@ -329,10 +344,12 @@ function TT.CreateColumns(t)
         end)
     end
     
-    --t.ResetColumnFramePoints = TT.private.ResetColumnFramePoints
+    t.ResetColumnFramePoints = TT.private.ResetColumnFramePoints
 end
 
-function TT.ResetColumnFramePoints(t)
+function TT.private.ResetColumnFramePoints(self)
+    local t = self
+    
     local enabledcolumns = {}
     for i = 1, #t.columns do
         if t.columns[i].enable then
@@ -352,7 +369,7 @@ function TT.ResetColumnFramePoints(t)
         else
             currentframe:SetPoint('TOPLEFT', prevframe, 'TOPRIGHT', 0,0)
         end
-    
+        
         --calculate allowed width, current width
         maxw = t.width - runningwidth - (t.mincolwidth * (#enabledcolumns - i))
         curw = currentframe:GetRight() - currentframe:GetLeft()
@@ -372,19 +389,19 @@ function TT.ResetColumnFramePoints(t)
     end
 end
 
-function TT.private.AddHeaderClickAction(self, f)
+function TT.private.AddHeaderClickAction(self, f, ...)
     local t = self
-    tinsert(t.headerclickactions, f)
+    tinsert(t.headerclickactions, {f, {...}})
 end
 
-function TT.private.AddRowClickAction(self, f)
+function TT.private.AddRowClickAction(self, f, ...)
     local t = self
-    tinsert(t.rowclickactions, f)
+    tinsert(t.rowclickactions, {f, {...}})
 end
 
-function TT.private.AddScrollAction(self, f)
+function TT.private.AddScrollAction(self, f, ...)
     local t = self
-    tinsert(t.scrollactions, f)
+    tinsert(t.scrollactions, {f, {...}})
 end
 
 --rows...
@@ -422,8 +439,9 @@ function TT.CreateRows(t)
             this.highlightspecial:Show()
             t.selectedindex = this.index
             
-            for idx, func in ipairs(t.rowclickactions) do
-                func(t)
+            --call extra actions
+            for z = 1, #t.rowclickactions do
+                t.rowclickactions[z][1](unpack(t.rowclickactions[z][2]))
             end
             
             --[[
@@ -441,6 +459,7 @@ function TT.CreateSeparators(t)
     for i = 1, t.rowcount do
         --separator
         ui = fLibGUI.CreateSeparator(t)
+        tinsert(t.separators, ui)
         ui:SetWidth(t.width)
     end
 end
@@ -487,8 +506,9 @@ function TT.CreateScrollBar(t)
 
     ui:SetScript('OnValueChanged', function()
         this.table.startingindex = this:GetValue()
-        for idx, func in ipairs(this.table.scrollactions) do
-            func(this.table)
+        --call extra actions
+        for z = 1, #this.table.scrollactions do
+            this.table.scrollactions[z][1](unpack(this.table.scrollactions[z][2]))
         end
         --this.table:LoadRows(this:GetValue())
     end)
@@ -523,7 +543,7 @@ function TT.SetUIPoints(t)
         
         --cells
         for j = 1, t.colcount do
-            currentframe = t.columnframes[j]
+            currentframe = t.columns[j]
             ui = currentframe.cells[i]
             ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
             ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
@@ -540,8 +560,14 @@ function fRaid.Player.View()
     local mf = fRaid.GUI2.PlayerFrame
 
     if not mf.viewedonce then
+        --create index table
         mf.index_to_name = {}
         mf.lastmodified = fRaid.db.global.Player.LastModified
+        
+        mf.table = TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
+        
+        
+        
         
         function mf:RetrieveData(index)
             local name, data
@@ -550,7 +576,7 @@ function fRaid.Player.View()
             end
             
             name = self.index_to_name[index]
-            data = fRaid.Player.PlayerList[name]
+            data = fRaid.db.global.Player.PlayerList[name]
             
             return name, data
         end
@@ -561,7 +587,7 @@ function fRaid.Player.View()
                 mf.lastmodified = fRaid.db.global.Player.LastModified
                 
                 local obj, previ
-                for name,data in pairs(fRaid.Player.PlayerList) do
+                for name,data in pairs(fRaid.db.global.Player.PlayerList) do
                     tinsert(mf.index_to_name, name)
                 end
                 
@@ -574,21 +600,19 @@ function fRaid.Player.View()
             end
         end
 
-        mf.table = TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
-        
         --click on a header
-        function mf.table:ClickHeader()
+        function mf:ClickHeader()
             self:Sort()
             self:LoadRows()
         end
         
         --click on a row
-        function mf.table:ClickRow()
+        function mf:ClickRow()
             self:RefreshDetails()
         end
         
         --scroll
-        function mf.table:Scroll()
+        function mf:Scroll()
             self:LoadRows()
         end
         
@@ -597,24 +621,24 @@ function fRaid.Player.View()
                 self.table.startingindex = startingindex
             end
 
-            --check if index list needs to be refreshed?
+            self:RefreshIndex()
             
             local name, data
             local index = self.table.startingindex
             
             local searchmatch = false
             local searchnum, searchname
-            searchnum = tonumber(mf.search)
-            searchname = strlower(mf.search)
+            searchnum = tonumber(self.search)
+            searchname = strlower(self.search)
             
             local selectedindexfound = false
             
-            for i = 1, self.rowcount do
+            for i = 1, self.table.rowcount do
                 --search
                 searchmatch = false
                 while not searchmatch do
                     name, data = self:RetrieveData(index)
-                    if mf.search == '' or not data then
+                    if self.search == '' or not data then
                         searchmatch = true
                     else
                         if data.dkp == searchnum then
@@ -637,7 +661,6 @@ function fRaid.Player.View()
                 else
                     --fill in cells with stuff
                     self.table.columns[1].cells[i]:SetText(name)
-                  
                     self.table.columns[2].cells[i]:SetText(data.dkp)
                     self.table.columns[3].cells[i]:SetText(data.rank)
                     self.table.columns[4].cells[i]:SetText(data.role)
@@ -646,62 +669,139 @@ function fRaid.Player.View()
                     self.table.columns[7].cells[i]:SetText(index)
                     
                     --attach correct indexnum to rowbutton
-                    mf.rowbuttons[i]:Show()
-                    mf.rowbuttons[i].indexnum = indexnum
+                    self.table.rowbuttons[i]:Show()
+                    self.table.rowbuttons[i].index = index
                     
-                    if indexnum == mf.selectedindexnum then
-                        mf.rowbuttons[i].highlightspecial:Show()
+                    if index == self.table.selectedindex then
+                        self.table.rowbuttons[i].highlightspecial:Show()
                         selectedindexfound = true
                     else
-                        mf.rowbuttons[i].highlightspecial:Hide()
+                        self.table.rowbuttons[i].highlightspecial:Hide()
                     end
                 end
                 index = index + 1
             end
             
 
-            if  selectedindexfound then
-                mf.selectedindexnum = 0
-                mf:RefreshDetails()
+            if not selectedindexfound then
+                self.table.selectedindex = 0
+                self:RefreshDetails()
             end
         end
         
+        function mf:Refresh()
+	        mf:LoadRows()
+        end
+        
+        function mf:RefreshDetails()
+            local name, data = self:RetrieveData()
+            if name and data then
+                self.title_name:SetText(name)
+                self.title_dkp:SetText(data.dkp)
+            else
+                self.title_name:SetText('')
+                self.title_dkp:SetText('')
+            end
+		end
+        
+        --a and b are indexes in ListIndex
+        mf.sortkeeper = {
+	        {asc = false, issorted = false, name = 'Name'},
+	        {asc = false, issorted = false, name = 'Dkp'},
+	        {asc = false, issorted = false, name = 'Rank'},
+	        {asc = false, issorted = false, name = 'Role'},
+	        {asc = false, issorted = false, name = 'Att'},
+	        {asc = false, issorted = false, name = 'Prog'},
+	        {asc = false, issorted = false, name = 'Id'}
+        }
+        function mf.lootcomparer(a, b) --a and b are index's in index_to_name
+            if a < 1 or b < 1 then
+                return true
+            end
+            
+            --retrieve data
+            local aname, adata = mf:RetrieveData(a)
+            local bname, bdata = mf:RetrieveData(b)
+            
+            --find the sorted column and how it is sorted
+            local SORT = mf.table.selectedcolnum
+            local SORT_ASC = mf.sortkeeper[SORT].asc
+            local SORT_NAME = mf.sortkeeper[SORT].name
+            
+            local ret = true
+            
+            if SORT_NAME == 'Dkp' then
+                if adata.dkp == bdata.dkp then
+                    ret = aname > bname
+                else
+                    ret = adata.dkp < bdata.dkp
+                end
+            elseif SORT_NAME == 'Id' then
+                ret = a > b
+            else
+                ret = aname > bname
+            end
+            
+            if SORT_ASC then
+                return not ret
+            else
+                return ret
+            end
+        end
+        
+        function mf:Sort(colnum)
+            if colnum then
+                mf.table.selectedcolnum = colnum
+            end
+            
+            colnum = mf.table.selectedcolnum
+            if mf.sortkeeper[colnum].issorted then
+                --toggle ascending / descending sort
+                mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
+            else
+                mf.sortkeeper[colnum].asc = true
+                for idx,keeper in ipairs(mf.sortkeeper) do
+                    keeper.issorted = false
+                end
+                mf.sortkeeper[colnum].issorted = true
+            end
+            table.sort(mf.index_to_name, mf.lootcomparer)
+        end
         
         
+        mf.table:AddHeaderClickAction(mf.ClickHeader, mf)
+        mf.table:AddRowClickAction(mf.ClickRow, mf)
+        mf.table:AddScrollAction(mf.Scroll, mf)
+        
+        --fill in headers
+        local i = 1
+        mf.table.columns[i].headerbutton:SetText('Name')
+        mf.table.columns[i]:SetWidth(115)
+        i = i + 1
+        mf.table.columns[i].headerbutton:SetText('Dkp')
+        mf.table.columns[i]:SetWidth(50)
+        i = i + 1
+        mf.table.columns[i].headerbutton:SetText('Rank')
+        mf.table.columns[i]:SetWidth(50)
+        i = i + 1
+        mf.table.columns[i].headerbutton:SetText('Role')
+        mf.table.columns[i]:SetWidth(75)
+        i = i + 1
+        mf.table.columns[i].headerbutton:SetText('Att')
+        mf.table.columns[i]:SetWidth(50)
+        i = i + 1
+        mf.table.columns[i].headerbutton:SetText('Prog')
+        mf.table.columns[i]:SetWidth(50)
+        i = i + 1
+        mf.table.columns[i].headerbutton:SetText('Id')
+        mf.table.columns[i]:SetWidth(50)
         
         
-        local ui, prevui
-
-        
-        mf.items = fRaid.db.global.PlayerList
-        --create ListIndex
-        mf.ListIndex = {}
-        mf.selectedindexnum = 0
-        mf.prevlistcount = 0
-        
-        mf.prevsortcol = 1
-    
-        --create ui elements
-        --Name, Dkp, Role, Attendance, Progression Attendance, Id
-        mf.columnframes[1].headerbutton:SetText('Name')
-        mf.columnframes[1]:SetWidth(125)
-        mf.columnframes[2].headerbutton:SetText('Dkp')
-        mf.columnframes[2]:SetWidth(50)
-        mf.columnframes[3].headerbutton:SetText('Dkp')
-        mf.columnframes[3]:SetWidth(50)
-        mf.columnframes[4].headerbutton:SetText('Role')
-        mf.columnframes[4]:SetWidth(75)
-        mf.columnframes[5].headerbutton:SetText('Att')
-        mf.columnframes[5]:SetWidth(50)
-        mf.columnframes[6].headerbutton:SetText('Prog')
-        mf.columnframes[6]:SetWidth(50)
-        mf.columnframes[7].headerbutton:SetText('Id')
-        mf.columnframes[7]:SetWidth(50)
         
         --separator
         ui = fLibGUI.CreateSeparator(mf)
-        ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - mf.mincolheight)
-        ui:SetWidth(mf.maxwidth)
+        ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - mf.table.height)
+        ui:SetWidth(mf.table.width)
         prevui = ui
         
         --Search box
@@ -709,7 +809,7 @@ function fRaid.Player.View()
         mf.eb_search = ui
         mf.search = ''
         ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
-        ui:SetWidth(mf.maxwidth)
+        ui:SetWidth(mf.table.width)
         ui:SetScript('OnEnterPressed', function()
             this:ClearFocus()
         end)
@@ -763,7 +863,7 @@ function fRaid.Player.View()
         --separator
         ui = fLibGUI.CreateSeparator(mf)
         ui:SetWidth(1)
-        ui:SetHeight(mf:GetHeight() - mf.mincolheight - 15)
+        ui:SetHeight(mf:GetHeight() - mf.table.height - 15)
         ui:SetPoint('TOP', mf.eb_search, 'BOTTOM', -25,-1)
         prevui = ui
         
@@ -822,98 +922,6 @@ function fRaid.Player.View()
             end
         end)
 
-
-        --REFRESH
-        function mf:Refresh()
-            --regenerate ListIndex if ItemList has changed
-            mf:RefreshListIndex()
-            mf:LoadRows()
-        end
-        
-        --CALLED BY REFRESH directly or indirectly
-        function mf:RefreshDetails()
-            local itemnum, itemobj = mf:SelectedData()
-            if itemobj then
-                mf.title_name:SetText(itemobj.name)
-                mf.title_dkp:SetText(itemobj.dkp)
-            else
-                mf.title_name:SetText('')
-                mf.title_dkp:SetText('')
-            end
-        end
-
-        
-        
-        --a and b are indexes in ListIndex
-        mf.sortkeeper = {
-            {asc = false, issorted = false},
-            {asc = false, issorted = false},
-            {asc = false, issorted = false},
-            {asc = false, issorted = false},
-            {asc = false, issorted = false},
-            {asc = false, issorted = false}
-        }
-        function mf.lootcomparer(a, b)
-            if a == nil or b == nil then
-                return true
-            end
-            
-            if a < 1 or b < 1 then
-                return true
-            end
-            
-            --retrieving itemobj
-            local aobj = fRaid.db.global.PlayerList[a]
-            local bobj = fRaid.db.global.PlayerList[b]
-            
-            local SORT = 1
-            local SORT_ASC = false
-            for idx,keeper in ipairs(mf.sortkeeper) do
-                if keeper.issorted then
-                    SORT = idx
-                    SORT_ASC = keeper.asc
-                end
-            end
-            
-            local ret = true
-
-            if SORT == 2 then
-                if aobj.dkp == bobj.dkp then
-                    ret = aobj.name > bobj.name
-                else
-                    ret = aobj.dkp < bobj.dkp
-                end
-            elseif SORT == 6 then
-                ret = a > b
-            else
-                ret = aobj.name > bobj.name
-            end
-            
-            if SORT_ASC then
-                return not ret
-            else
-                return ret
-            end
-        end
-
-        function mf:Sort(colnum)
-            if mf.sortkeeper[colnum].issorted then
-                mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
-                table.sort(mf.ListIndex, mf.lootcomparer)
-            else
-                mf.prevsortcol = colnum
-                mf.sortkeeper[colnum].asc = true
-                for idx,keeper in ipairs(mf.sortkeeper) do
-                    keeper.issorted = false
-                end
-                mf.sortkeeper[colnum].issorted = true
-                table.sort(mf.ListIndex, mf.lootcomparer)
-            end
-        end
-
-
-
-        
             
         mf.viewedonce = true
         
