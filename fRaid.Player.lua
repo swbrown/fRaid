@@ -52,7 +52,7 @@ function LIST.GetPlayer(name, createnew)
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.Player.ChangeList, {name, 'new'})
+        tinsert(fRaid.Player.ChangeList, {name, 'new', '', fRaid.db.global.Player.LastModified})
         
         fRaid:Print('Added new player ' .. name)
     end
@@ -72,8 +72,10 @@ function LIST.DeletePlayer(name, note)
     if obj then
         --delete
         fRaid.Player.PlayerList[name] = nil
+        fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
+        
         --audit
-        tinsert(fRaid.Player.ChangeList, {name, 'delete', note, obj})
+        tinsert(fRaid.Player.ChangeList, {name, 'delete', note, fRaid.db.global.Player.LastModified, obj})
     end
 end
 
@@ -83,9 +85,10 @@ function LIST.SetDkp(name, dkp, note)
     if obj and obj.dkp ~= dkp then
         local olddkp = obj.dkp
         obj.dkp = dkp
+        fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.Player.ChageList, {name, 'dkp', note, olddkp, obj.dkp})
+        tinsert(fRaid.Player.ChageList, {name, 'dkp', note, fRaid.db.global.Player.LastModified, olddkp, obj.dkp})
     end
 end
 
@@ -243,9 +246,26 @@ function TT.CreateTable(parentframe, width, height, colcount)
 	t.resizebuttonwidth = 4
 	t.scrollbarwidth = 10
 	
-	TT.CreateColumns(t)
+	t.startingindex = 1
+	t.selectedindex = 0
+	t.selectedcolnum = 1
+	t.count = 0
 	
+	TT.CreateColumns(t)
 	TT.CreateRows(t)
+	TT.CreateSeparators(t)
+	TT.CreateCells(t)
+	TT.CreateScrollBar(t)
+	TT.SetUIPoints(t)
+	TT.ResetColumnFramePoints(t)
+	
+	t.headerclickactions = {}
+	t.rowclickactions = {}
+	t.scrollactions = {}
+	
+	t.AddHeaderClickAction = TT.private.AddHeaderClickAction
+	t.AddRowClickAction = TT.private.AddRowClickAction
+	t.AddScrollAction = TT.private.AddScrollAction
 	
 	return t
 end
@@ -279,15 +299,18 @@ function TT.CreateColumns(t)
         ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
         ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -t.resizebuttonwidth, 0)
         ui:SetScript('OnClick', function()
-            this.table:Sort(this.colnum)
-        	this.table:LoadRows()
+            this.table.selectedcolnum = this.colnum
+            for idx, func in ipairs(this.table.headerclickactions) do
+                func(this.table)
+            end
+            
         end)            
         
         --resize button
         ui = fLibGUI.CreateActionButton(currentframe)
         currentframe.resizebutton = ui
         
-        ui.table = t
+        --ui.table = t --not used by anything yet
         
         ui:GetFontString():SetJustifyH('LEFT')
         ui:SetWidth(t.resizebuttonwidth)
@@ -304,22 +327,12 @@ function TT.CreateColumns(t)
             this.highlight:Hide()
             this.table:ResetColumnFramePoints()
         end)
-                
-        --cells
-        --hmmm... assuming all the cells are labels...
-        currentframe.cells = {}
-        for j = 1, t.rowcount do
-            ui = fLibGUI.CreateLabel(currentframe)
-            tinsert(currentframe.cells, ui)
-            ui:SetJustifyH('LEFT')
-        end
     end
     
-    t.ResetColumnFramePoints = TT.private.ResetColumnFramePoints
+    --t.ResetColumnFramePoints = TT.private.ResetColumnFramePoints
 end
 
-function TT.private.ResetColumnFramePoints(self)
-    local t = self
+function TT.ResetColumnFramePoints(t)
     local enabledcolumns = {}
     for i = 1, #t.columns do
         if t.columns[i].enable then
@@ -359,30 +372,37 @@ function TT.private.ResetColumnFramePoints(self)
     end
 end
 
+function TT.private.AddHeaderClickAction(self, f)
+    local t = self
+    tinsert(t.headerclickactions, f)
+end
+
+function TT.private.AddRowClickAction(self, f)
+    local t = self
+    tinsert(t.rowclickactions, f)
+end
+
+function TT.private.AddScrollAction(self, f)
+    local t = self
+    tinsert(t.scrollactions, f)
+end
+
 --rows...
 function TT.CreateRows(t)
     --rowbutton for each row
     t.rowbuttons = {}
-    local rowoffset = 0
     for i = 1, t.rowcount do
-        rowoffset = t.rowheight * i + t.separatorheight * i
-        
-        --separator
-        ui = fLibGUI.CreateSeparator(t)
-        ui:SetPoint('TOPLEFT', t, 'TOPLEFT', 5,-6 - rowoffset)
-        ui:SetWidth(t.width)
-        
         --rowbutton
         ui = fLibGUI.CreateActionButton(t)
         tinsert(t.rowbuttons, ui)
         
-        ui.indexnum = 0
+        ui.table = t
+        ui.index = 0
         
         ui:SetFrameLevel(4)
         ui:GetFontString():SetJustifyH('LEFT')
         ui:SetHeight(t.rowheight)
         ui:SetWidth(t.width)
-        ui:SetPoint('TOPLEFT', t, 'TOPLEFT', 5, -6-rowoffset)
         
         ui.highlightspecial = ui:CreateTexture(nil, "BACKGROUND")
         ui.highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
@@ -391,6 +411,8 @@ function TT.CreateRows(t)
         ui.highlightspecial:Hide()
         
         ui:SetScript('OnClick', function()
+            local t = this.table
+            
             --unselect all the other rows
             for i = 1, t.rowcount do
                 t.rowbuttons[i].highlightspecial:Hide()
@@ -398,36 +420,258 @@ function TT.CreateRows(t)
             
             --select this row
             this.highlightspecial:Show()
-            t.selectedindexnum = this.indexnum
+            t.selectedindex = this.index
             
+            for idx, func in ipairs(t.rowclickactions) do
+                func(t)
+            end
+            
+            --[[
             --fill in details
             t:RefreshDetails()
+            --]]
         end)
+    end
+end
+
+
+function TT.CreateSeparators(t)
+    t.separators = {}
+    
+    for i = 1, t.rowcount do
+        --separator
+        ui = fLibGUI.CreateSeparator(t)
+        ui:SetWidth(t.width)
+    end
+end
+
+function TT.CreateCells(t)
+    local ui, currentframe
+    for i = 1, t.colcount do
+        currentframe = t.columns[i]
+        currentframe.cells = {}
+        for j = 1, t.rowcount do
+            ui = fLibGUI.CreateLabel(currentframe)
+            tinsert(currentframe.cells, ui)
+            ui:SetJustifyH('LEFT')
+        end
+    end
+end
+
+function TT.CreateScrollBar(t)
+    --Scroll bar
+    ui = CreateFrame('slider', nil, t)
+    t.slider = ui
+    
+    ui.table = t
+    
+    ui:SetFrameLevel(5)
+    ui:SetOrientation('VERTICAL')
+    ui:SetMinMaxValues(1, 1)
+    ui:SetValueStep(1)
+    ui:SetValue(1)
+    
+    ui:SetWidth(10)
+    ui:SetHeight(t.height)
+    
+    ui:SetThumbTexture('Interface/Buttons/UI-SliderBar-Button-Horizontal')
+    ui:SetBackdrop({
+        bgFile='Interface/Buttons/UI-SliderBar-Background',
+        edgeFile = 'Interface/Buttons/UI-SliderBar-Border',
+        tile = true,
+        tileSize = 8,
+        edgeSize = 8,
+        insets = {left = 3, right = 3, top = 3, bottom = 3}
+        --insets are for the bgFile
+    })
+
+    ui:SetScript('OnValueChanged', function()
+        this.table.startingindex = this:GetValue()
+        for idx, func in ipairs(this.table.scrollactions) do
+            func(this.table)
+        end
+        --this.table:LoadRows(this:GetValue())
+    end)
+    
+    t:EnableMouseWheel(true)
+    t:SetScript('OnMouseWheel', function(this,delta)
+        local current = this.slider:GetValue()
+        local min,max = this.slider:GetMinMaxValues()
+        if delta < 0 then
+            current = current + 3
+            if current > max then
+                current = max
+            end
+            this.slider:SetValue(current)
+        elseif delta > 0 then
+            current = current - 3
+            if current < min then
+                current = min
+            end
+            this.slider:SetValue(current)
+        end
+    end)
+end
+
+function TT.SetUIPoints(t)
+    local ui, currentframe
+    local rowoffset = t.headerheight + t.separatorheight
+    for i = 1, t.rowcount do
+        t.rowbuttons[i]:SetPoint('TOPLEFT', t, 'TOPLEFT', 5, -6-rowoffset)
+        --attach them on top of each rowbutton
+        t.separators[i]:SetPoint('BOTTOMLEFT', t.rowbuttons[i], 'TOPLEFT', 0, 0)
         
-        --cell location for each column
-        for j = 1, #t.columnframes do
+        --cells
+        for j = 1, t.colcount do
             currentframe = t.columnframes[j]
             ui = currentframe.cells[i]
             ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
             ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
         end
-    end 
+        
+        --slider
+        t.slider:SetPoint('TOPRIGHT', t, 'TOPRIGHT', -5, -5)
+        
+        rowoffset = rowoffset + t.rowheight + t.separatorheight
+    end
 end
---]]
+
 function fRaid.Player.View()
     local mf = fRaid.GUI2.PlayerFrame
 
     if not mf.viewedonce then
+        mf.index_to_name = {}
+        mf.lastmodified = fRaid.db.global.Player.LastModified
+        
+        function mf:RetrieveData(index)
+            local name, data
+            if not index or index < 1 then
+                index = 1
+            end
+            
+            name = self.index_to_name[index]
+            data = fRaid.Player.PlayerList[name]
+            
+            return name, data
+        end
+        
+        function mf:RefreshIndex(force)
+            if mf.lastmodified ~= fRaid.db.global.Player.LastModified or force then
+                table.wipe(mf.index_to_name)
+                mf.lastmodified = fRaid.db.global.Player.LastModified
+                
+                local obj, previ
+                for name,data in pairs(fRaid.Player.PlayerList) do
+                    tinsert(mf.index_to_name, name)
+                end
+                
+                local max = #mf.index_to_name - mf.table.rowcount + 1
+                if max < 1 then
+                    max = 1
+                end
+                mf.table.slider:SetMinMaxValues(1, max)
+                mf:Sort(mf.table.selectedcolnum)
+            end
+        end
+
+        mf.table = TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
+        
+        --click on a header
+        function mf.table:ClickHeader()
+            self:Sort()
+            self:LoadRows()
+        end
+        
+        --click on a row
+        function mf.table:ClickRow()
+            self:RefreshDetails()
+        end
+        
+        --scroll
+        function mf.table:Scroll()
+            self:LoadRows()
+        end
+        
+        function mf:LoadRows(startingindex)
+            if startingindexnum then
+                self.table.startingindex = startingindex
+            end
+
+            --check if index list needs to be refreshed?
+            
+            local name, data
+            local index = self.table.startingindex
+            
+            local searchmatch = false
+            local searchnum, searchname
+            searchnum = tonumber(mf.search)
+            searchname = strlower(mf.search)
+            
+            local selectedindexfound = false
+            
+            for i = 1, self.rowcount do
+                --search
+                searchmatch = false
+                while not searchmatch do
+                    name, data = self:RetrieveData(index)
+                    if mf.search == '' or not data then
+                        searchmatch = true
+                    else
+                        if data.dkp == searchnum then
+                            searchmatch = true
+                        elseif strfind(strlower(name), searchname, 1, true) then
+                            searchmatch = true
+                        else
+                            index = index + 1
+                        end
+                    end
+                end
+                
+                if not data then
+                    for j = 1, self.table.colcount do
+                        self.table.columns[j].cells[i]:SetText('')
+                    end
+                    
+                    self.table.rowbuttons[i]:Hide()
+                    self.table.rowbuttons[i].index = 0
+                else
+                    --fill in cells with stuff
+                    self.table.columns[1].cells[i]:SetText(name)
+                  
+                    self.table.columns[2].cells[i]:SetText(data.dkp)
+                    self.table.columns[3].cells[i]:SetText(data.rank)
+                    self.table.columns[4].cells[i]:SetText(data.role)
+                    self.table.columns[5].cells[i]:SetText('')
+                    self.table.columns[6].cells[i]:SetText('')
+                    self.table.columns[7].cells[i]:SetText(index)
+                    
+                    --attach correct indexnum to rowbutton
+                    mf.rowbuttons[i]:Show()
+                    mf.rowbuttons[i].indexnum = indexnum
+                    
+                    if indexnum == mf.selectedindexnum then
+                        mf.rowbuttons[i].highlightspecial:Show()
+                        selectedindexfound = true
+                    else
+                        mf.rowbuttons[i].highlightspecial:Hide()
+                    end
+                end
+                index = index + 1
+            end
+            
+
+            if  selectedindexfound then
+                mf.selectedindexnum = 0
+                mf:RefreshDetails()
+            end
+        end
+        
+        
+        
+        
         
         local ui, prevui
-        --mf.rowheight = 12
-        mf.startingrow = 1
-        --mf.availablerows = 15
-        
-        --mf.mincolwidth = 20
-        --mf.mincolheight = mf.rowheight * mf.availablerows + mf.availablerows + mf.rowheight
-        --#rows times height of each row plus 1 for each separator plus header row
-        --mf.maxwidth = mf:GetWidth() - 25
+
         
         mf.items = fRaid.db.global.PlayerList
         --create ListIndex
@@ -436,24 +680,9 @@ function fRaid.Player.View()
         mf.prevlistcount = 0
         
         mf.prevsortcol = 1
-
-        function mf:SelectedData(indexnum)
-            local itemnum, itemobj
-            if not indexnum or indexnum < 1 then
-                indexnum = mf.selectedindexnum
-            end
-            
-            itemnum = mf.ListIndex[indexnum]
-            itemobj = mf.items[itemnum]
-            return itemnum, itemobj
-        end
     
         --create ui elements
         --Name, Dkp, Role, Attendance, Progression Attendance, Id
-        
-        
-        mf.columnframes = CreateColumns(mf, mf:GetWidth() - 25, mf:GetHeight() - 25, 7)
-        
         mf.columnframes[1].headerbutton:SetText('Name')
         mf.columnframes[1]:SetWidth(125)
         mf.columnframes[2].headerbutton:SetText('Dkp')
@@ -468,108 +697,6 @@ function fRaid.Player.View()
         mf.columnframes[6]:SetWidth(50)
         mf.columnframes[7].headerbutton:SetText('Id')
         mf.columnframes[7]:SetWidth(50)
-                
-        --rowbutton for each row
-        mf.rowbuttons = {}
-        local rowoffset = 0
-        for i = 1, mf.availablerows do
-            rowoffset = mf.rowheight * i + i
-            
-            --separator
-            ui = fLibGUI.CreateSeparator(mf)
-            ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - rowoffset)
-            ui:SetWidth(mf.maxwidth)
-            
-            --rowbutton
-            ui = fLibGUI.CreateActionButton(mf)
-            tinsert(mf.rowbuttons, ui)
-    
-            ui.indexnum = 0
-            
-            ui:SetFrameLevel(4)
-            ui:GetFontString():SetJustifyH('LEFT')
-            ui:SetHeight(mf.rowheight)
-            ui:SetWidth(mf.maxwidth)
-            ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -6-rowoffset)
-            
-            ui.highlightspecial = ui:CreateTexture(nil, "BACKGROUND")
-            ui.highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
-            ui.highlightspecial:SetBlendMode("ADD")
-            ui.highlightspecial:SetAllPoints(ui)
-            ui.highlightspecial:Hide()
-            
-            ui:SetScript('OnClick', function()
-                --unselect all the other rows
-                for i = 1, mf.availablerows do
-                    mf.rowbuttons[i].highlightspecial:Hide()
-                end
-                
-                --select this row
-                this.highlightspecial:Show()
-                mf.selectedindexnum = this.indexnum
-                
-                --fill in details
-                mf:RefreshDetails()
-            end)
-            
-            --cell location for each column
-            for j = 1, #mf.columnframes do
-                currentframe = mf.columnframes[j]
-                ui = currentframe.cells[i]
-                ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
-                ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
-            end
-        end
-
-        mf:ResetColumnFramePoints()
-        
-        --Scroll bar
-        ui = CreateFrame('slider', nil, mf)
-        mf.slider = ui
-        ui:SetFrameLevel(5)
-        ui:SetOrientation('VERTICAL')
-        ui:SetMinMaxValues(1, 1)
-        ui:SetValueStep(1)
-        ui:SetValue(1)
-        
-        ui:SetWidth(10)
-        ui:SetHeight(mf.mincolheight + mf.rowheight)
-        
-        ui:SetPoint('TOPRIGHT', mf, 'TOPRIGHT', -5, -5)
-        
-        ui:SetThumbTexture('Interface/Buttons/UI-SliderBar-Button-Horizontal')
-        ui:SetBackdrop({
-            bgFile='Interface/Buttons/UI-SliderBar-Background',
-            edgeFile = 'Interface/Buttons/UI-SliderBar-Border',
-            tile = true,
-            tileSize = 8,
-            edgeSize = 8,
-            insets = {left = 3, right = 3, top = 3, bottom = 3}
-            --insets are for the bgFile
-        })
-
-        ui:SetScript('OnValueChanged', function()
-            mf:LoadRows(this:GetValue())
-        end)
-        
-        mf:EnableMouseWheel(true)
-        mf:SetScript('OnMouseWheel', function(this,delta)
-            local current = this.slider:GetValue()
-            local min,max = this.slider:GetMinMaxValues()
-            if delta < 0 then
-                current = current + 3
-                if current > max then
-                    current = max
-                end
-                this.slider:SetValue(current)
-            elseif delta > 0 then
-                current = current - 3
-                if current < min then
-                    current = min
-                end
-                this.slider:SetValue(current)
-            end
-        end)
         
         --separator
         ui = fLibGUI.CreateSeparator(mf)
@@ -715,27 +842,7 @@ function fRaid.Player.View()
             end
         end
 
-        function mf:RefreshListIndex(force)
-            if mf.prevlistcount ~= #mf.items or force then
-                table.wipe(mf.ListIndex)
-                mf.prevlistcount = #mf.items
-                local obj, previ
-                for i = 1, #mf.items do
-                    obj = mf.items[i]
-                    if obj.valid then
-                        tinsert(mf.ListIndex, i)
-                    end
-                end
-            
-                local max = #mf.ListIndex - mf.availablerows + 1
-                if max < 1 then
-                    max = 1
-                end
-                mf.slider:SetMinMaxValues(1, max)
-                mf:Sort(mf.prevsortcol)
-            end
         
-        end
         
         --a and b are indexes in ListIndex
         mf.sortkeeper = {
@@ -806,82 +913,10 @@ function fRaid.Player.View()
 
 
 
-        function mf:LoadRows(startingindexnum)
-            if startingindexnum then
-                mf.startingrow = startingindexnum
-            end
-    
-            local itemnum, itemobj
-            local indexnum = mf.startingrow
-            
-            local searchmatch = false
-            local searchnum, searchname
-            searchnum = tonumber(mf.search)
-            searchname = strlower(mf.search)
-            
-            local selectedindexfound = false
-    
-            for i = 1, mf.availablerows do
-                --search
-                searchmatch = false
-                while not searchmatch do
-                    itemnum, itemobj = mf:SelectedData(indexnum)
-                    if mf.search == '' or not itemobj then
-                        searchmatch = true
-                    else
-                        if itemobj.dkp == searchnum then
-                            searchmatch = true
-                        elseif strfind(strlower(itemobj.name), searchname, 1, true) then
-                            searchmatch = true
-                        else
-                            indexnum = indexnum + 1
-                        end
-                    end
-                end
-    
-                if not itemobj then
-                    mf.columnframes[1].cells[i]:SetText('')
-                    mf.columnframes[2].cells[i]:SetText('')
-                    mf.columnframes[3].cells[i]:SetText('')
-                    mf.columnframes[4].cells[i]:SetText('')
-                    mf.columnframes[5].cells[i]:SetText('')
-                    mf.columnframes[6].cells[i]:SetText('')
-                    mf.columnframes[7].cells[i]:SetText('')
-                    
-                    mf.rowbuttons[i]:Hide()
-                    mf.rowbuttons[i].indexnum = 0
-                else
-                    --fill in the cells with stuff
-                    --local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemobj.id)
-                    mf.columnframes[1].cells[i]:SetText(itemobj.name)
-                    mf.columnframes[2].cells[i]:SetText(itemobj.dkp)
-                    mf.columnframes[3].cells[i]:SetText(itemobj.rank)
-                    mf.columnframes[4].cells[i]:SetText(itemobj.role)
-                    mf.columnframes[5].cells[i]:SetText('')
-                    mf.columnframes[6].cells[i]:SetText('')
-                    mf.columnframes[7].cells[i]:SetText(indexnum)
-                    
-                    --attach correct indexnum to rowbutton
-                    mf.rowbuttons[i]:Show()
-                    mf.rowbuttons[i].indexnum = indexnum
-    
-                    if indexnum == mf.selectedindexnum then
-                        mf.rowbuttons[i].highlightspecial:Show()
-                        selectedindexfound = true
-                    else
-                        f.rowbuttons[i].highlightspecial:Hide()
-                    end
-                end
-                indexnum = indexnum + 1
-            end
-    
-            if not selectedindexfound then
-                mf.selectedindexnum = 0
-                mf:RefreshDetails()
-            end
-        end
+        
             
         mf.viewedonce = true
+        
     end
 
     mf:Refresh()
