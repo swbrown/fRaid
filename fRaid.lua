@@ -119,6 +119,10 @@ local defaults = {
 		RaidList = {},
 		LootList = {},
 		AuctionList = {},
+		Player = {
+		  PlayerList = {},
+		  ChangeList = {}
+		}
 	},
 }
 
@@ -187,6 +191,7 @@ function addon:OnInitialize()
 	
 	fRaidBid:OnInitialize()
 	fRaidMob:OnInitialize()
+	fRaid.Player.OnInitialize()
 	addon:CreateGUI()
 	
 	self:Debug("<<OnInitialize>> end")
@@ -249,7 +254,7 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 			player = words[2]
 		end
 		
-		fRaidPlayer:WhisperDKP(player, whispertarget)
+		fRaid.Player.WhisperDKP(player, whispertarget)
 	end
 end
 
@@ -393,7 +398,7 @@ function addon:CreateGUI()
 	eb:SetNumber(0)
 	eb:SetScript('OnEnterPressed', function() 
 		if eb:GetNumber() > 0 then
-			fRaidPlayer:AddDKPToRaid(eb:GetNumber(), true)
+			fRaid.Player.AddDKPToRaid(eb:GetNumber(), true)
 		end
 		this:ClearFocus()
 		eb:SetNumber(0)
@@ -624,7 +629,7 @@ function fRaid.View()
 			mw:HideSubFrames()
 			mw.MenuFrame:UnselectButtons()
 			this.highlightspecial:Show()
-			fRaidPlayer.View()
+			fRaid.Player.View()
 		end)
 		button:SetPoint('TOPLEFT', title, 'BOTTOMLEFT', padding, -padding)
 		bix = bix + 1
