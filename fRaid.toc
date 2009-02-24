@@ -12,5 +12,5 @@ fRaidHistory.lua
 fRaid.Instance.lua
 fRaid.Boss.lua
 fRaid.Item.lua
-fRaidPlayer.lua
+fRaid.Player.lua
 fRaid.Raid.lua
