@@ -76,6 +76,7 @@ function LIST.DeletePlayer(name, note)
     if obj then
         --delete
         fRaid.db.global.Player.PlayerList[name] = nil
+        fRaid.db.global.Player.Count = fRaid.db.global.Player.Count - 1
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
@@ -130,10 +131,10 @@ function fRaid.Player.AddDkp(name, amount, note)
     LIST.SetDkp(name, newamount, note)
     
     local objcopy2 = LIST.GetPlayer(name)
-    local msg = objcopy2.name .. ' - Prev Dkp: ' .. objcopy.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. objcopy2.dkp
+    local msg = name .. ' - Prev Dkp: ' .. objcopy.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. objcopy2.dkp
 
     fRaid:Print('UPDATE: ' .. msg)
-    fRaid:Whisper(objcopy2.name, msg)
+    fRaid:Whisper(name, msg)
 end
 
 function fRaid.Player.DeletePlayer(name)
@@ -565,9 +566,7 @@ function fRaid.Player.View()
         mf.lastmodified = fRaid.db.global.Player.LastModified
         
         mf.table = TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
-        
-        
-        
+
         
         function mf:RetrieveData(index)
             local name, data

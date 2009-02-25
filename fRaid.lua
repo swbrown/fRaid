@@ -121,7 +121,9 @@ local defaults = {
 		AuctionList = {},
 		Player = {
 		  PlayerList = {},
-		  ChangeList = {}
+		  ChangeList = {},
+		  Count = 0,
+		  LastModified = 0,
 		}
 	},
 }

@@ -23,7 +23,7 @@ function fRaid.Instance.GetObject(zonename, createnew)
     if createnew and not obj then
         --create a new one
         obj = {}
-        fRaid.db.global.InstanceList[zonename] = obj
+        fRaid.db.global.Instance.ZoneList[zonename] = obj
         fRaid.db.global.Instance.Count = fRaid.db.global.Instance.Count + 1
         fRaid.db.global.Instance.LastModified = fLib.GetTimestamp()  
     end

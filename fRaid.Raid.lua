@@ -105,44 +105,6 @@ function fRaid.Raid.TrackRaiders()
     fRaid.db.global.RaiderList = newraiderlist
 end
 
-function fRaid.Raid.Startx()
-    --if CurrentRaid is already started, warn that one is already started
-    if fRaid.db.global.CurrentRaid then
-        Raid:Print('A raid has already been started.')
-    else
-
-        
-        --add current raiders to raiders
-        for i=1,GetNumRaidMembers() do 
-            name = GetRaidRosterInfo(i)
-            if name then
-                local raiderobj = {
-                    id = fRaidPlayer.GetPlayerId(name, true),
-                    timestamp = curtimestamp,
-                    timestamplist = {},
-                }
-                tinsert(raidobj.raiders, raiderobj)
-            end
-        end
-        
-        fRaid.db.global.CurrentRaid = raidobj
-        fRaid:Print('Raid started')
-    end
-end
-
-function fRaid.Raid.Close()
-    if fRaid.db.global.CurrentRaid then
-        fRaid.db.global.CurrentRaid.timestamp.endtime = date("%m/%d/%y %H:%M:%S")
-        tinsert(fRaid.db.global.RaidList, fRaid.db.global.CurrentRaid)
-        fRaid.db.global.CurrentRaid = nil
-        fRaid:Print('Raid closed')
-    end
-end
-
-function fRaid.RAID_ROSTER_UPDATE()
-    
-end
-
 --==================================================================================================
 
 function fRaid.Raid.View()
