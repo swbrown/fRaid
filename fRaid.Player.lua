@@ -217,345 +217,6 @@ function fRaid.Player.WhisperDkp(cmd, whispertarget)
 end
 
 --==================================================================================================
-local TT = {}
-TT.private = {}
-fRaid.Player.TT = TT
-
---returns a tableobj
---a tableobj is a frame with these properties
---  width
---  height
---  colcount
---  mincolwidth
---  headerheight
---  rowheight
---  separatorheight
---  rowcount - calculated
---  resizebuttonwidth
---  scrollbarwidth
-function TT.CreateTable(parentframe, width, height, colcount)
-	local t = fLibGUI.CreateClearFrame(parentframe)
-    
-TT.try1 = t
-
-	t.width = width
-	t.height = height
-	
-	t.colcount = colcount
-	t.mincolwidth = 20
-	
-	t.headerheight = 12
-	t.rowheight = 12
-	t.separatorheight = 1
-	
-	--floor((height - headerheight - separator - bottompadding) / (rowheight + separator))
-	t.rowcount = floor((t.height - t.headerheight - t.separatorheight - 4) / (t.rowheight + t.separatorheight))
-	
-	t.resizebuttonwidth = 4
-	t.scrollbarwidth = 10
-	
-	t.startingindex = 1
-	t.selectedindex = 0
-	t.selectedcolnum = 1
-	--t.count = 0
-	
-	t:SetPoint('TOPLEFT', 0, 0)
-	t:SetWidth(t.width)
-	t:SetHeight(t.height)
-	
-	--helper funcs to create my table
-	TT.CreateColumns(t)
-	TT.CreateRows(t)
-	TT.CreateSeparators(t)
-	TT.CreateCells(t)
-	TT.CreateScrollBar(t)
-	TT.SetUIPoints(t)
-	
-	t:ResetColumnFramePoints()
-	
-	--list of func,args to be called
-	t.headerclickactions = {}
-	t.rowclickactions = {}
-	t.scrollactions = {}
-	
-	t.AddHeaderClickAction = TT.private.AddHeaderClickAction
-	t.AddRowClickAction = TT.private.AddRowClickAction
-	t.AddScrollAction = TT.private.AddScrollAction
-	
-	return t
-end
-
---columns - list of column frames
-function TT.CreateColumns(t)
-    t.columns = {}
-    
-    local currentframe    
-    for i = 1, t.colcount do
-    	--column frame
-        currentframe = fLibGUI.CreateClearFrame(t)
-        tinsert(t.columns, currentframe)
-        
-        currentframe.table = t        
-        currentframe.enable = true
-        
-        currentframe:SetWidth(t.mincolwidth)
-        currentframe:SetHeight(t.height)
-        currentframe:SetResizable(true)
-        currentframe:SetMinResize(t.mincolwidth, t.height)
-        
-        --header button
-        ui = fLibGUI.CreateActionButton(currentframe)
-        currentframe.headerbutton = ui
-        
-        ui.table = t
-        ui.colnum = i
-        
-        ui:GetFontString():SetJustifyH('LEFT')
-        ui:SetHeight(t.headerheight)
-        ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
-        ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -t.resizebuttonwidth, 0)
-        ui:SetScript('OnClick', function()
-            this.table.selectedcolnum = this.colnum
-            --call extra actions
-            for z = 1, #this.table.headerclickactions do
-                this.table.headerclickactions[z][1](unpack(this.table.headerclickactions[z][2]))
-            end
-        end)            
-        
-        --resize button
-        ui = fLibGUI.CreateActionButton(currentframe)
-        currentframe.resizebutton = ui
-        
-        ui.table = t
-        
-        ui:GetFontString():SetJustifyH('LEFT')
-        ui:SetWidth(t.resizebuttonwidth)
-        ui:SetHeight(t.height)
-        ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', 0,0)
-        ui:RegisterForDrag('LeftButton')
-        
-        ui:SetScript('OnDragStart', function(this, button)
-            this:GetParent():StartSizing('RIGHT')
-            this.highlight:Show()
-        end)
-        ui:SetScript('OnDragStop', function(this, button)
-            this:GetParent():StopMovingOrSizing()
-            this.highlight:Hide()
-            this.table:ResetColumnFramePoints()
-        end)
-    end
-    
-    t.ResetColumnFramePoints = TT.private.ResetColumnFramePoints
-end
-
-function TT.private.ResetColumnFramePoints(self)
-    local t = self
-    
-    local enabledcolumns = {}
-    for i = 1, #t.columns do
-        if t.columns[i].enable then
-            tinsert(enabledcolumns, i)
-        end
-    end
-    
-    local firstcolumndone = false
-    local runningwidth = 0
-    local currentcol, currentframe, prevframe, maxw, curw
-    for i = 1, #enabledcolumns do
-        currentcol = enabledcolumns[i]
-        currentframe = t.columns[currentcol]
-        if not firstcolumndone then
-            currentframe:SetPoint('TOPLEFT', t, 'TOPLEFT', 5, -5)
-            firstcolumndone = true
-        else
-            currentframe:SetPoint('TOPLEFT', prevframe, 'TOPRIGHT', 0,0)
-        end
-        
-        --calculate allowed width, current width
-        maxw = t.width - runningwidth - (t.mincolwidth * (#enabledcolumns - i))
-        curw = currentframe:GetRight() - currentframe:GetLeft()
-        --check if its larger than allowed width
-        if curw > maxw then
-            currentframe:SetWidth(maxw)    
-        end
-        runningwidth = runningwidth + currentframe:GetWidth()
-        
-        prevframe = currentframe
-    end
-    
-    if #enabledcolumns > 0 then
-        currentcol = enabledcolumns[#enabledcolumns]
-        currentframe = t.columns[currentcol]
-        currentframe:SetPoint('TOPRIGHT', t, 'TOPLEFT', t.width + 5, -5)
-    end
-end
-
-function TT.private.AddHeaderClickAction(self, f, ...)
-    local t = self
-    tinsert(t.headerclickactions, {f, {...}})
-end
-
-function TT.private.AddRowClickAction(self, f, ...)
-    local t = self
-    tinsert(t.rowclickactions, {f, {...}})
-end
-
-function TT.private.AddScrollAction(self, f, ...)
-    local t = self
-    tinsert(t.scrollactions, {f, {...}})
-end
-
---rows...
-function TT.CreateRows(t)
-    --rowbutton for each row
-    t.rowbuttons = {}
-    for i = 1, t.rowcount do
-        --rowbutton
-        ui = fLibGUI.CreateActionButton(t)
-        tinsert(t.rowbuttons, ui)
-        
-        ui.table = t
-        ui.index = 0
-        
-        ui:SetFrameLevel(4)
-        ui:GetFontString():SetJustifyH('LEFT')
-        ui:SetHeight(t.rowheight)
-        ui:SetWidth(t.width)
-        
-        ui.highlightspecial = ui:CreateTexture(nil, "BACKGROUND")
-        ui.highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
-        ui.highlightspecial:SetBlendMode("ADD")
-        ui.highlightspecial:SetAllPoints(ui)
-        ui.highlightspecial:Hide()
-        
-        ui:SetScript('OnClick', function()
-            local t = this.table
-            
-            --unselect all the other rows
-            for i = 1, t.rowcount do
-                t.rowbuttons[i].highlightspecial:Hide()
-            end
-            
-            --select this row
-            this.highlightspecial:Show()
-            t.selectedindex = this.index
-            
-            --call extra actions
-            for z = 1, #t.rowclickactions do
-                t.rowclickactions[z][1](unpack(t.rowclickactions[z][2]))
-            end
-            
-            --[[
-            --fill in details
-            t:RefreshDetails()
-            --]]
-        end)
-    end
-end
-
-
-function TT.CreateSeparators(t)
-    t.separators = {}
-    
-    for i = 1, t.rowcount do
-        --separator
-        ui = fLibGUI.CreateSeparator(t)
-        tinsert(t.separators, ui)
-        ui:SetWidth(t.width)
-    end
-end
-
-function TT.CreateCells(t)
-    local ui, currentframe
-    for i = 1, t.colcount do
-        currentframe = t.columns[i]
-        currentframe.cells = {}
-        for j = 1, t.rowcount do
-            ui = fLibGUI.CreateLabel(currentframe)
-            tinsert(currentframe.cells, ui)
-            ui:SetJustifyH('LEFT')
-        end
-    end
-end
-
-function TT.CreateScrollBar(t)
-    --Scroll bar
-    ui = CreateFrame('slider', nil, t)
-    t.slider = ui
-    
-    ui.table = t
-    
-    ui:SetFrameLevel(5)
-    ui:SetOrientation('VERTICAL')
-    ui:SetMinMaxValues(1, 1)
-    ui:SetValueStep(1)
-    ui:SetValue(1)
-    
-    ui:SetWidth(10)
-    ui:SetHeight(t.height)
-    
-    ui:SetThumbTexture('Interface/Buttons/UI-SliderBar-Button-Horizontal')
-    ui:SetBackdrop({
-        bgFile='Interface/Buttons/UI-SliderBar-Background',
-        edgeFile = 'Interface/Buttons/UI-SliderBar-Border',
-        tile = true,
-        tileSize = 8,
-        edgeSize = 8,
-        insets = {left = 3, right = 3, top = 3, bottom = 3}
-        --insets are for the bgFile
-    })
-
-    ui:SetScript('OnValueChanged', function()
-        this.table.startingindex = this:GetValue()
-        --call extra actions
-        for z = 1, #this.table.scrollactions do
-            this.table.scrollactions[z][1](unpack(this.table.scrollactions[z][2]))
-        end
-        --this.table:LoadRows(this:GetValue())
-    end)
-    
-    t:EnableMouseWheel(true)
-    t:SetScript('OnMouseWheel', function(this,delta)
-        local current = this.slider:GetValue()
-        local min,max = this.slider:GetMinMaxValues()
-        if delta < 0 then
-            current = current + 3
-            if current > max then
-                current = max
-            end
-            this.slider:SetValue(current)
-        elseif delta > 0 then
-            current = current - 3
-            if current < min then
-                current = min
-            end
-            this.slider:SetValue(current)
-        end
-    end)
-end
-
-function TT.SetUIPoints(t)
-    local ui, currentframe
-    local rowoffset = t.headerheight + t.separatorheight
-    for i = 1, t.rowcount do
-        t.rowbuttons[i]:SetPoint('TOPLEFT', t, 'TOPLEFT', 5, -6-rowoffset)
-        --attach them on top of each rowbutton
-        t.separators[i]:SetPoint('BOTTOMLEFT', t.rowbuttons[i], 'TOPLEFT', 0, 0)
-        
-        --cells
-        for j = 1, t.colcount do
-            currentframe = t.columns[j]
-            ui = currentframe.cells[i]
-            ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
-            ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
-        end
-        
-        --slider
-        t.slider:SetPoint('TOPRIGHT', t, 'TOPRIGHT', -5, -5)
-        
-        rowoffset = rowoffset + t.rowheight + t.separatorheight
-    end
-end
 
 function fRaid.Player.View()
     local mf = fRaid.GUI2.PlayerFrame
@@ -563,15 +224,16 @@ function fRaid.Player.View()
     if not mf.viewedonce then
         --create index table
         mf.index_to_name = {}
-        mf.lastmodified = fRaid.db.global.Player.LastModified
+        mf.lastmodified = 0--fRaid.db.global.Player.LastModified
         
-        mf.table = TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
+        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 25, 200, 7) 
+        --TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
 
         
         function mf:RetrieveData(index)
             local name, data
             if not index or index < 1 then
-                index = 1
+                index = self.table.selectedindex
             end
             
             name = self.index_to_name[index]
@@ -582,6 +244,7 @@ function fRaid.Player.View()
         
         function mf:RefreshIndex(force)
             if mf.lastmodified ~= fRaid.db.global.Player.LastModified or force then
+                print('Refreshing index...')
                 table.wipe(mf.index_to_name)
                 mf.lastmodified = fRaid.db.global.Player.LastModified
                 
@@ -616,6 +279,7 @@ function fRaid.Player.View()
         end
         
         function mf:LoadRows(startingindex)
+            print('Loading rows...')
             if startingindexnum then
                 self.table.startingindex = startingindex
             end
@@ -868,7 +532,7 @@ function fRaid.Player.View()
         
         ui = fLibGUI.CreateLabel(mf)
         ui:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, -5)
-        ui:SetText('Modify dkp:')
+        ui:SetText('Add dkp:')
         prevui = ui
         
         mf.eb_dkpchange = fLibGUI.CreateEditBox3(mf, 'amount')
@@ -903,13 +567,13 @@ function fRaid.Player.View()
             this:ClearFocus()
         end)
         mf.eb_dkpnote:SetScript('OnEnterPressed', function()
-            local playernum, playerobj = mf:SelectedData()
+            local name, playerobj = mf:RetrieveData()
             if playerobj then
                 local amount = tonumber(mf.eb_dkpchange:GetText())
                 if amount then
                     --playerobj.dkp = playerobj.dkp + newdkp
                     --TODO: note
-                    fRaidPlayer:AddDKP(playerobj.name, amount, mf.eb_dkpnote:GetText())
+                    fRaid.Player.AddDkp(name, amount, mf.eb_dkpnote:GetText())
                     mf:Refresh()
                     mf.eb_dkpchange:SetText('')
                     this:SetText('')
