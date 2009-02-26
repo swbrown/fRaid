@@ -42,6 +42,10 @@ end
 
 --returns a copy of playerobj
 function LIST.GetPlayer(name, createnew)
+    if not name or name == '' then
+        return nil
+    end
+
     --may want to format name ? fRaid:Capitalize(strlower(strtrim(name)))
     local obj = fRaid.db.global.Player.PlayerList[name]
     if createnew and not obj then
@@ -103,7 +107,7 @@ end
 --amount can be a positive or negative value
 function fRaid.Player.AddDkp(name, amount, note)
     --check args
-    if not name then
+    if not name or name == '' then
         fRaid:Print("ERROR: missing arg1 name")
         return
     end
@@ -295,6 +299,8 @@ function fRaid.Player.View()
             searchname = strlower(self.search)
             
             local selectedindexfound = false
+            local exactmatchindex = 0
+            local exactmatchrow = 0
             
             for i = 1, self.table.rowcount do
                 --search
@@ -308,6 +314,10 @@ function fRaid.Player.View()
                             searchmatch = true
                         elseif strfind(strlower(name), searchname, 1, true) then
                             searchmatch = true
+                            if strlower(name) == strlower(searchname) then
+                                exactmatchrow = i
+                                exactmatchindex = index
+                            end
                         else
                             index = index + 1
                         end
@@ -345,8 +355,12 @@ function fRaid.Player.View()
                 index = index + 1
             end
             
-
-            if not selectedindexfound then
+            if exactmatchrow > 0 then
+                print('exact match at ', exactmatchindex)
+                self.table.rowbuttons[exactmatchrow].highlightspecial:Show()
+                self.table.selectedindex = exactmatchindex
+                self:RefreshDetails()
+            elseif not selectedindexfound then
                 self.table.selectedindex = 0
                 self:RefreshDetails()
             end
@@ -378,13 +392,11 @@ function fRaid.Player.View()
 	        {asc = false, issorted = false, name = 'Id'}
         }
         function mf.lootcomparer(a, b) --a and b are index's in index_to_name
-            if a < 1 or b < 1 then
-                return true
-            end
-            
             --retrieve data
-            local aname, adata = mf:RetrieveData(a)
-            local bname, bdata = mf:RetrieveData(b)
+            --local aname, adata = mf:RetrieveData(a)
+            local adata = fRaid.db.global.Player.PlayerList[a]
+            --local bname, bdata = mf:RetrieveData(b)
+            local bdata = fRaid.db.global.Player.PlayerList[b]
             
             --find the sorted column and how it is sorted
             local SORT = mf.table.selectedcolnum
@@ -395,14 +407,12 @@ function fRaid.Player.View()
             
             if SORT_NAME == 'Dkp' then
                 if adata.dkp == bdata.dkp then
-                    ret = aname > bname
+                    ret = a > b
                 else
                     ret = adata.dkp < bdata.dkp
                 end
-            elseif SORT_NAME == 'Id' then
-                ret = a > b
             else
-                ret = aname > bname
+                ret = a > b
             end
             
             if SORT_ASC then
@@ -431,6 +441,19 @@ function fRaid.Player.View()
             table.sort(mf.index_to_name, mf.lootcomparer)
         end
         
+        local function np(name)
+            fRaid.Player.AddDkp(name, 0, 'new player')
+            print('add new player complete, refreshing...')
+            mf:Refresh()
+            print('hiding newbutton')
+            mf.eb_search.newbutton:Hide()
+        end
+        function mf:NewPlayer(name)
+            if not name or name == '' then
+                name = self.eb_search:GetText()
+            end
+            fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', np, name)
+        end
         
         mf.table:AddHeaderClickAction(mf.ClickHeader, mf)
         mf.table:AddRowClickAction(mf.ClickRow, mf)
@@ -467,21 +490,44 @@ function fRaid.Player.View()
         ui:SetWidth(mf.table.width)
         prevui = ui
         
-        --Search box
-        ui = fLibGUI.CreateEditBox(mf, 'Search')
+        --Search/Name box
+        ui = fLibGUI.CreateEditBox(mf, 'Name')
         mf.eb_search = ui
         mf.search = ''
         ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
         ui:SetWidth(mf.table.width)
         ui:SetScript('OnEnterPressed', function()
             this:ClearFocus()
-        end)
-        ui:SetScript('OnTextChanged', function()
-            if this:GetText() ~= mf.search then
-                mf.search = this:GetText()
-                mf:LoadRows()
+            if mf.table.selectedindex == 0 then
+                mf:NewPlayer()
             end
         end)
+        ui:SetScript('OnTextChanged', function()
+            print('text changed')
+            if this:GetText() ~= mf.search then
+                mf.table.selectedindex = 0
+                mf:RefreshDetails()
+                mf.search = this:GetText()
+                mf:LoadRows()
+                if mf.table.selectedindex == 0 and mf.search ~= '' then
+                    this.newbutton:Show()
+                else
+                    this.newbutton:Hide()
+                end
+            end
+        end)
+        prevui = ui
+        
+        ui = fLibGUI.CreateActionButton(mf)
+        mf.eb_search.newbutton = ui
+        ui:SetText('New')
+        ui:SetFrameLevel(4)
+        ui:SetWidth(ui:GetTextWidth())
+        ui:SetHeight(ui:GetTextHeight())
+        ui:SetScript('OnClick', function() mf:NewPlayer() end)
+        ui:SetPoint('RIGHT', mf.eb_search, 'RIGHT', -4, 0)
+        ui:Hide()
+        
         
         --Player Details
         ui = fLibGUI.CreateLabel(mf)
@@ -527,7 +573,7 @@ function fRaid.Player.View()
         ui = fLibGUI.CreateSeparator(mf)
         ui:SetWidth(1)
         ui:SetHeight(mf:GetHeight() - mf.table.height - 15)
-        ui:SetPoint('TOP', mf.eb_search, 'BOTTOM', -25,-1)
+        ui:SetPoint('TOP', mf.eb_search, 'BOTTOM', -30,-1)
         prevui = ui
         
         ui = fLibGUI.CreateLabel(mf)
