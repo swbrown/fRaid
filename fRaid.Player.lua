@@ -40,13 +40,32 @@ end
 --Functions that access PlayerList
 --USE ONLY THESE FUNCTIONS TO ACCESS PLAYERLIST--
 
+function LIST.Count(recount)
+    if not recount then
+        return fRaid.db.global.Player.Count
+    else
+        --recount
+        local count = 0
+        for name, data in pairs(fRaid.db.global.Player.PlayerList) do
+            count = count + 1
+        end
+        --update count
+        fRaid.db.global.Player.Count = count
+        
+        --return
+        return fRaid.db.global.Player.Count
+    end
+end
+
 --returns a copy of playerobj
 function LIST.GetPlayer(name, createnew)
     if not name or name == '' then
         return nil
     end
+    
+    --make sure name is formatted correctly
+    name = fRaid:Capitalize(strlower(strtrim(name)))
 
-    --may want to format name ? fRaid:Capitalize(strlower(strtrim(name)))
     local obj = fRaid.db.global.Player.PlayerList[name]
     if createnew and not obj then
         obj = {
@@ -76,6 +95,9 @@ end
 
 --removes the player
 function LIST.DeletePlayer(name, note)
+    --make sure name is formatted correctly
+    name = fRaid:Capitalize(strlower(strtrim(name)))
+    
     local obj = fRaid.db.global.Player.PlayerList[name]
     if obj then
         --delete
@@ -90,6 +112,9 @@ end
 
 --set the player's dkp
 function LIST.SetDkp(name, dkp, note)
+    --make sure name is formatted correctly
+    name = fRaid:Capitalize(strlower(strtrim(name)))
+    
     local obj = fRaid.db.global.Player.PlayerList[name]
     if obj and obj.dkp ~= dkp then
         local olddkp = obj.dkp
@@ -173,7 +198,7 @@ function fRaid.Player.AddDkpToRaid(amount, includelistedplayers)
         if fList and fList.CURRENTLIST.IsListOpen() then
             for idx, info in ipairs(fList.CURRENTLIST.GetPlayers()) do
                 name = info.name
-                fRaid.AddDkp(name, amount/2)
+                fRaid.Player.AddDkp(name, amount/2)
             end
         end
         fRaid:Print('COMPLETE: ' .. amount/2 .. ' DKP added to waitlist')

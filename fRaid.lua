@@ -124,6 +124,10 @@ local defaults = {
 		  ChangeList = {},
 		  Count = 0,
 		  LastModified = 0,
+		},
+		Raid = {
+		  RaidList = {},
+		  LastModified = 0,
 		}
 	},
 }
@@ -400,7 +404,7 @@ function addon:CreateGUI()
 	eb:SetNumber(0)
 	eb:SetScript('OnEnterPressed', function() 
 		if eb:GetNumber() > 0 then
-			fRaid.Player.AddDKPToRaid(eb:GetNumber(), true)
+			fRaid.Player.AddDkpToRaid(eb:GetNumber(), true)
 		end
 		this:ClearFocus()
 		eb:SetNumber(0)
