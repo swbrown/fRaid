@@ -80,7 +80,7 @@ function fRaid.Raid.TrackRaiders()
     for i = 1, GetNumRaidMembers() do
         name = GetRaidRosterInfo(i)
         if name then
-            print('Found ' .. name)
+            --print('Found ' .. name)
             local g, _, r = GetGuildInfo('raid' .. i)
             
             raiderobj = fRaid.db.global.Raid.CurrentRaid.RaiderList[name]

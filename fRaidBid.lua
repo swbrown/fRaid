@@ -190,7 +190,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 				end
 				
 				--refresh dkp
-				local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(bid.name)
+				local dkpinfo = fRaid.Player.LIST.GetPlayer(bid.name)
 				local tot = 0
 				if dkpinfo then
 					tot = dkpinfo.dkp
@@ -205,7 +205,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 				if lootinfo then
 					x = lootinfo.mindkp
 				end
-				local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(playername)
+				local dkpinfo = fRaid.Player.LIST.GetPlayer(playername)
 				local tot = 0
 				if dkpinfo then
 					tot = dkpinfo.dkp
@@ -258,7 +258,7 @@ function BIDLIST.RefreshBids()
 	for idx,info in ipairs(db.bidlist) do
 		for idx2,bid in ipairs(info.bids) do
 			--refresh dkp
-			local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(bid.name)
+			local dkpinfo = fRaid.Player.LIST.GetPlayer(bid.name)
 			local tot = 0
 			if dkpinfo then
 				tot = dkpinfo.dkp
@@ -270,6 +270,7 @@ function BIDLIST.RefreshBids()
 		sort(info.bids, bidcomparer)
 	end
 end
+
 
 --==================================================================================================
 --Functions for stuff
@@ -309,7 +310,7 @@ function addon.AddBid(playername, number, cmd)
 		return
 	end
 	
-	local dkpinfo = fRaidPlayer.DKPLIST.GetPlayer(playername)
+	local dkpinfo = fRaid.Player.LIST.GetPlayer(playername)
 	
 	if not cmd or (type(tonumber(cmd)) ~= 'number' and type(cmd) ~= 'string') then
 		local msg = 'Invalid bid: invalid or missing bid amount or min or all or cancel\n'
@@ -412,6 +413,7 @@ function addon.AnnounceWinningBids()
 	end
 end
 
+
 --==================================================================================================
 --Events
 
@@ -498,7 +500,7 @@ function fRaidBid.ChargeDKP(iteminfo, bidinfo)
 	if not bidinfo.charged then
 		--charge dkp
 		fRaid:Print('Charging ' .. bidinfo.name .. ' ' .. bidinfo.actual .. ' dkp for ' .. iteminfo.link)
-		fRaidPlayer:AddDKP(bidinfo.name, -bidinfo.actual, iteminfo.link)
+		fRaid.Player.AddDkp(bidinfo.name, -bidinfo.actual, iteminfo.link)
 		
 		local winnerinfo = {
 			id = iteminfo.id,
@@ -511,6 +513,7 @@ function fRaidBid.ChargeDKP(iteminfo, bidinfo)
 		bidinfo.charged = true
 	end
 end
+
 
 --==================================================================================================
 --GUI Creation
@@ -798,12 +801,6 @@ function fRaidBid.CreateGUI()
 				--4 Bid
 				mw_bids.col4[z]:SetText(bidinfo.amount)
 				mw_bids.col4[z]:Show()
-				--[[
-				mw_bids.col3[z]:SetNumber(bidinfo.amount)
-				mw_bids.col3[z]:Show()
-				mw_bids.col3[z]:ClearFocus()
-				mw_bids.col3[z].itemindex = i
-				--]]
 				
 				
 				--5 Total
@@ -914,7 +911,7 @@ function fRaidBid.CreateGUI()
 		end
 		
 		local highlight = ui:CreateTexture(nil, "BACKGROUND")
-		highlight:SetTexture(0.96, 0.55, 0.73, .2)
+		highlight:SetTexture(0.96, 0.55, 0.73, 0.2)
 		ui.highlightspecial = highlight
 		highlight:SetBlendMode("ADD")
 		highlight:SetAllPoints(ui)
@@ -1064,7 +1061,7 @@ function fRaidBid.CreateGUI()
 		end
 		
 		local highlight = ui:CreateTexture(nil, "BACKGROUND")
-		highlight:SetTexture(0.96, 0.55, 0.73, .2)
+		highlight:SetTexture(0.96, 0.55, 0.73, 0.2)
 		ui.highlightspecial = highlight
 		highlight:SetBlendMode("ADD")
 		highlight:SetAllPoints(ui)
@@ -1131,48 +1128,6 @@ function fRaidBid.CreateGUI()
 		
 		ui.r,ui.g,ui.b,ui.a = ui:GetTextColor()
 	end
-	
-	--[[
-	mw_bids.col3 = {} --contains editboxes
-	for i = 1, bidrowcount do
-		ui = fLibGUI.CreateEditBox2(mw_bids, 'dkp')
-		tinsert(mw_bids.col3, ui)
-		
-		ui:SetWidth(100)
-		ui:SetNumeric(true)			
-		
-		if i == 1 then
-			ui:SetPoint('TOPLEFT', mw_bids.headers[3], 'BOTTOMLEFT', 0, -2)
-			ui:SetPoint('TOPRIGHT', mw_bids.headers[3], 'BOTTOMRIGHT', 0, -2)
-		else
-			ui:SetPoint('TOPLEFT', mw_bids.col3[i-1], 'BOTTOMLEFT', 0, -2)
-			ui:SetPoint('TOPRIGHT', mw_bids.col3[i-1], 'BOTTOMRIGHT', 0, -2)
-		end
-		
-		ui.itemindex= 0
-		ui:SetScript('OnEnterPressed', function()
-			--save new value
-			local items = BIDLIST.GetList()
-			local iteminfo = items[mw_items.selecteditemindex]
-			if iteminfo then
-				local bid = iteminfo.bids[this.itemindex]
-				bid.dkp = this:GetNumber()
-				this:SetNumber(tonumber(bid.dkp))
-			end
-			this:ClearFocus()
-		end)
-		ui:SetScript('OnEscapePressed', function()
-			--restore old value
-			local items = BIDLIST.GetList()
-			local iteminfo = items[mw_items.selecteditemindex]
-			if iteminfo then
-				local bid = iteminfo.bids[this.itemindex]
-				this:SetNumber(tonumber(bid.dkp))
-			end
-			this:ClearFocus()
-		end)
-	end
-	--]]
 	
 	----Column 5: Total
 	mw_bids.col5 = {} --contains fontstrings
@@ -1264,14 +1219,6 @@ function fRaidBid.CreateGUI()
 			ui:SetPoint('TOPLEFT', mw_bids.col7[i-1], 'BOTTOMLEFT', 0, -4)
 			ui:SetPoint('TOPRIGHT', mw_bids.col7[i-1], 'BOTTOMRIGHT', 0, -4)
 		end
-		--[[
-		local highlight = ui:CreateTexture(nil, "BACKGROUND")
-		highlight:SetTexture(0.96, 0.55, 0.73, .2)
-		ui.highlightspecial = highlight
-		highlight:SetBlendMode("ADD")
-		highlight:SetAllPoints(ui)
-		highlight:Hide()
-		--]]
 		
 		ui.itemindex= 0
 		ui:SetScript('OnClick', function()
@@ -1382,6 +1329,7 @@ function fRaidBid.CreateGUI()
 	mw:LoadItemRows(1)
 	mw:LoadBidRows(1)
 end
+
 
 function fRaidBid.ShowGUI()
 	if not addon.GUI then

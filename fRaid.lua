@@ -128,6 +128,11 @@ local defaults = {
 		Raid = {
 		  RaidList = {},
 		  LastModified = 0,
+		},
+		Instance = {
+		  ZoneList = {},
+		  Count = 0,
+		  LastModified = 0,
 		}
 	},
 }
@@ -260,7 +265,7 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 			player = words[2]
 		end
 		
-		fRaid.Player.WhisperDKP(player, whispertarget)
+		fRaid.Player.WhisperDkp(player, whispertarget)
 	end
 end
 

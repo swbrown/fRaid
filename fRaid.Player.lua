@@ -8,12 +8,11 @@
 
 --Data Structures:
 --  PlayerList - table, key = playername, value = player data
---  PlayerListChanges - table, key = playername, value = list of changes
+--  ChangeList - table, key = playername, value = list of changes
 --    this list maintains the audit trail of changes to the PlayerList
 --    when syncing...
 
 --for reference
---fRaid.db.global.CurrentRaid
 --fRaid.db.global.Player.PlayerList {name => {dkp, attendance}
 --fRaid.db.global.Player.ChangeList {myname => {idx => {name, action, note, oldvalue, newvalue}}}
 --fRaid.db.global.Player.Count
@@ -255,9 +254,7 @@ function fRaid.Player.View()
         mf.index_to_name = {}
         mf.lastmodified = 0--fRaid.db.global.Player.LastModified
         
-        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 25, 200, 7) 
-        --TT.CreateTable(mf, mf:GetWidth() - 25, 200, 7)
-
+        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 6) 
         
         function mf:RetrieveData(index)
             local name, data
@@ -273,7 +270,7 @@ function fRaid.Player.View()
         
         function mf:RefreshIndex(force)
             if mf.lastmodified ~= fRaid.db.global.Player.LastModified or force then
-                print('Refreshing index...')
+                --print('Refreshing index...')
                 table.wipe(mf.index_to_name)
                 mf.lastmodified = fRaid.db.global.Player.LastModified
                 
@@ -308,7 +305,7 @@ function fRaid.Player.View()
         end
         
         function mf:LoadRows(startingindex)
-            print('Loading rows...')
+            --print('Loading rows...')
             if startingindexnum then
                 self.table.startingindex = startingindex
             end
@@ -364,7 +361,7 @@ function fRaid.Player.View()
                     self.table.columns[4].cells[i]:SetText(data.role)
                     self.table.columns[5].cells[i]:SetText('')
                     self.table.columns[6].cells[i]:SetText('')
-                    self.table.columns[7].cells[i]:SetText(index)
+                    --self.table.columns[7].cells[i]:SetText(index)
                     
                     --attach correct indexnum to rowbutton
                     self.table.rowbuttons[i]:Show()
@@ -381,7 +378,7 @@ function fRaid.Player.View()
             end
             
             if exactmatchrow > 0 then
-                print('exact match at ', exactmatchindex)
+                --print('exact match at ', exactmatchindex)
                 self.table.rowbuttons[exactmatchrow].highlightspecial:Show()
                 self.table.selectedindex = exactmatchindex
                 self:RefreshDetails()
@@ -416,7 +413,7 @@ function fRaid.Player.View()
 	        {asc = false, issorted = false, name = 'Prog'},
 	        {asc = false, issorted = false, name = 'Id'}
         }
-        function mf.lootcomparer(a, b) --a and b are index's in index_to_name
+        function mf.lootcomparer(a, b) --a and b are names
             --retrieve data
             --local aname, adata = mf:RetrieveData(a)
             local adata = fRaid.db.global.Player.PlayerList[a]
@@ -468,9 +465,9 @@ function fRaid.Player.View()
         
         local function np(name)
             fRaid.Player.AddDkp(name, 0, 'new player')
-            print('add new player complete, refreshing...')
+            --print('add new player complete, refreshing...')
             mf:Refresh()
-            print('hiding newbutton')
+            --print('hiding newbutton')
             mf.eb_search.newbutton:Hide()
         end
         function mf:NewPlayer(name)
@@ -487,7 +484,7 @@ function fRaid.Player.View()
         --fill in headers
         local i = 1
         mf.table.columns[i].headerbutton:SetText('Name')
-        mf.table.columns[i]:SetWidth(115)
+        mf.table.columns[i]:SetWidth(100)
         i = i + 1
         mf.table.columns[i].headerbutton:SetText('Dkp')
         mf.table.columns[i]:SetWidth(50)
@@ -504,10 +501,8 @@ function fRaid.Player.View()
         mf.table.columns[i].headerbutton:SetText('Prog')
         mf.table.columns[i]:SetWidth(50)
         i = i + 1
-        mf.table.columns[i].headerbutton:SetText('Id')
-        mf.table.columns[i]:SetWidth(50)
-        
-        
+        --mf.table.columns[i].headerbutton:SetText('Id')
+        --mf.table.columns[i]:SetWidth(50)
         
         --separator
         ui = fLibGUI.CreateSeparator(mf)
@@ -528,7 +523,7 @@ function fRaid.Player.View()
             end
         end)
         ui:SetScript('OnTextChanged', function()
-            print('text changed')
+            --print('text changed')
             if this:GetText() ~= mf.search then
                 mf.table.selectedindex = 0
                 mf:RefreshDetails()
