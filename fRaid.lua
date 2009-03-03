@@ -299,7 +299,7 @@ function addon:PLAYER_GUILD_UPDATE(...)
 end
 
 function addon:RAID_ROSTER_UPDATE(...)
-	print(...)
+	--print(...)
 	fRaid.Raid.RAID_ROSTER_UPDATE()
 end
 

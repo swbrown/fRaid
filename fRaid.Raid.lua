@@ -116,9 +116,11 @@ function fRaid.Raid.TrackRaiders()
     
     --track players that left
     for name, raiderobj in pairs(fRaid.db.global.Raid.CurrentRaid.RaiderList) do
-        print('ending ' .. name)
+        --print('ending ' .. name)
         timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
-        timestampobj.endtime = fLib.GetTimestamp()
+        if not timestampobj.endtime then
+            timestampobj.endtime = fLib.GetTimestamp()
+        end
         
         newraiderlist[name] = raiderobj
         fRaid.db.global.Raid.CurrentRaid.RaiderList[name] = nil
