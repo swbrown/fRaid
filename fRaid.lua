@@ -107,17 +107,8 @@ local defaults = {
 				alwaysshow = false,
 			},
 		},
-		fRaidMob = {
-			moblist = {},
-		},
 		cap = 0, --0 should mean no cap
-		InstanceList = {},
-		BossList = {},
 		ItemList = {},
-		PlayerList = {},
-		DkpHistoryList = {},
-		RaidList = {},
-		LootList = {},
 		AuctionList = {},
 		Player = {
 		  PlayerList = {},
@@ -201,7 +192,7 @@ function addon:OnInitialize()
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter2)
 	
 	fRaidBid:OnInitialize()
-	fRaidMob:OnInitialize()
+	--fRaidMob:OnInitialize()
 	fRaid.Player.OnInitialize()
 	addon:CreateGUI()
 	
@@ -278,11 +269,11 @@ function addon:LOOT_CLOSED(...)
 end
 
 function addon:PLAYER_REGEN_DISABLED(...)
-	fRaid.Boss.PLAYER_REGEN_DISABLED()
+	--fRaid.Boss.PLAYER_REGEN_DISABLED()
 end
 
 function addon:COMBAT_LOG_EVENT_UNFILTERED(...)
-	fRaid.Boss.COMBAT_LOG_EVENT_UNFILTERED(...)
+	--fRaid.Boss.COMBAT_LOG_EVENT_UNFILTERED(...)
 end
 
 function addon:LOOT_SLOT_CLEARED(...)
@@ -608,7 +599,7 @@ function fRaid.View()
 			mw:HideSubFrames()
 			mw.MenuFrame:UnselectButtons()
 			this.highlightspecial:Show()
-			fRaid.Boss.View()
+			--fRaid.Boss.View()
 		end)
 		button:SetPoint('TOPLEFT', mw.MenuFrame.buttons[bix-1], 'BOTTOMLEFT', 0, -padding)
 		bix = bix + 1

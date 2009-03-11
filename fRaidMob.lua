@@ -5,11 +5,12 @@ local db = {}
 local needRefresh = true
 
 function addon:OnInitialize()
-	db = fRaid.db.global.fRaidMob
+	--db = fRaid.db.global.fRaidMob
 end
 --fRaid.db.global.mobs (idx => {id, name, rarity, link, mindkp, maxdkp})
 
-function fRaidMob.Add(mobname, location)	
+function fRaidMob.Add(mobname, location)
+--[[
 	--check to see if its already saved
 	for idx,info in ipairs(db.moblist) do
 		if info.name == mobname and info.location == location then
@@ -26,4 +27,5 @@ function fRaidMob.Add(mobname, location)
 		location = location,
 		dkp = 0,
 	})
+	--]]
 end

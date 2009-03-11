@@ -36,6 +36,19 @@ function fRaid.Player.Scan(name)
 end
 
 --===================================================================================
+--private functions used by LIST functions
+local function createplayerobj()
+    local obj = {
+	    dkp = 0,
+	    attendance = 0,
+	    class = '',
+	    role = '', --dps, heal, tank?                    
+    }
+    
+    return obj
+end
+
+--===================================================================================
 --Functions that access PlayerList
 --USE ONLY THESE FUNCTIONS TO ACCESS PLAYERLIST--
 
@@ -67,12 +80,7 @@ function LIST.GetPlayer(name, createnew)
 
     local obj = fRaid.db.global.Player.PlayerList[name]
     if createnew and not obj then
-        obj = {
-            dkp = 0,
-            attendance = 0,
-            class = '',
-            role = '', --dps, heal, tank?                    
-        }
+        obj = createplayerobj()
         fRaid.db.global.Player.PlayerList[name] = obj --add player
         fRaid.db.global.Player.Count = fRaid.db.global.Player.Count + 1
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
@@ -99,6 +107,9 @@ function LIST.DeletePlayer(name, note)
     
     local obj = fRaid.db.global.Player.PlayerList[name]
     if obj then
+        --zero dkp
+        LIST.SetDkp(name, 0, 'delete')
+        
         --delete
         fRaid.db.global.Player.PlayerList[name] = nil
         fRaid.db.global.Player.Count = fRaid.db.global.Player.Count - 1
@@ -123,6 +134,43 @@ function LIST.SetDkp(name, dkp, note)
         --audit
         tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'dkp', note, fRaid.db.global.Player.LastModified, olddkp, obj.dkp})
     end
+end
+
+--recalculates all player's dkp based on all the events logged in the ChangeList
+function LIST.RecalculateDkp()
+    local newList = {}
+    local name, obj, diff
+    local latesttimestamp = '-1'
+    for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
+        for idx, change in ipairs(changelist) do
+            --get/create name
+            name = change[1]
+            obj = newList[name]
+            if not obj then
+                obj = createplayerobj()
+                newList[name] = obj
+            end
+        
+            if change[2] == 'delete' then
+                --TODO: how to handle this?...
+                --what if user A deletes player, then later user B adds dkp to that player?
+                --hmm.. maybe save a delete change as zeroing out someone's dkp?
+            elseif change[2] == 'dkp' then
+                --calculate difference
+                diff = change[6] - change[5]
+                obj.dkp = obj.dkp + diff
+            end
+            
+            if change[4] > latesttimestamp then
+                latesttimestamp = change[4]
+            end
+        end
+    end
+    
+    wipe(fRaid.db.global.Player.PlayerList)
+    fRaid.db.global.Player.PlayerList = newList
+    
+    fRaid:Print('Player List recalculated. ' .. LIST.Count(true) .. ' found.')
 end
 
 --===========================================================================================
@@ -284,7 +332,7 @@ function fRaid.Player.View()
                     max = 1
                 end
                 mf.table.slider:SetMinMaxValues(1, max)
-                mf:Sort(mf.table.selectedcolnum)
+                mf.sortdirty = true
             end
         end
 
@@ -306,11 +354,12 @@ function fRaid.Player.View()
         
         function mf:LoadRows(startingindex)
             --print('Loading rows...')
-            if startingindexnum then
+            if startingindex then
                 self.table.startingindex = startingindex
             end
 
             self:RefreshIndex()
+            self:Sort()
             
             local name, data
             local index = self.table.startingindex
@@ -403,7 +452,7 @@ function fRaid.Player.View()
             end
 		end
         
-        --a and b are indexes in ListIndex
+        mf.sortdirty = true
         mf.sortkeeper = {
 	        {asc = false, issorted = false, name = 'Name'},
 	        {asc = false, issorted = false, name = 'Dkp'},
@@ -413,7 +462,7 @@ function fRaid.Player.View()
 	        {asc = false, issorted = false, name = 'Prog'},
 	        {asc = false, issorted = false, name = 'Id'}
         }
-        function mf.lootcomparer(a, b) --a and b are names
+        function mf.lootcomparer(a, b) --a and b are names (key for PlayerList)
             --retrieve data
             --local aname, adata = mf:RetrieveData(a)
             local adata = fRaid.db.global.Player.PlayerList[a]
@@ -447,28 +496,33 @@ function fRaid.Player.View()
         function mf:Sort(colnum)
             if colnum then
                 mf.table.selectedcolnum = colnum
+                mf.sortdirty = true
             end
             
-            colnum = mf.table.selectedcolnum
-            if mf.sortkeeper[colnum].issorted then
-                --toggle ascending / descending sort
-                mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
-            else
-                mf.sortkeeper[colnum].asc = true
-                for idx,keeper in ipairs(mf.sortkeeper) do
-                    keeper.issorted = false
-                end
-                mf.sortkeeper[colnum].issorted = true
-            end
-            table.sort(mf.index_to_name, mf.lootcomparer)
+            if mf.sortdirty then
+	            colnum = mf.table.selectedcolnum
+	            if mf.sortkeeper[colnum].issorted then
+	                --toggle ascending / descending sort
+	                mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
+	            else
+	                mf.sortkeeper[colnum].asc = true
+	                for idx,keeper in ipairs(mf.sortkeeper) do
+	                    keeper.issorted = false
+	                end
+	                mf.sortkeeper[colnum].issorted = true
+	            end
+	            table.sort(mf.index_to_name, mf.lootcomparer)
+	        end
         end
         
         local function np(name)
             fRaid.Player.AddDkp(name, 0, 'new player')
-            --print('add new player complete, refreshing...')
-            mf:Refresh()
-            --print('hiding newbutton')
+
+            mf.eb_search:SetText()
             mf.eb_search.newbutton:Hide()
+            mf.sortdirty = true
+            
+            mf:Refresh()
         end
         function mf:NewPlayer(name)
             if not name or name == '' then
@@ -640,10 +694,11 @@ function fRaid.Player.View()
                     --playerobj.dkp = playerobj.dkp + newdkp
                     --TODO: note
                     fRaid.Player.AddDkp(name, amount, mf.eb_dkpnote:GetText())
-                    mf:Refresh()
                     mf.eb_dkpchange:SetText('')
                     this:SetText('')
                     this:ClearFocus()
+                    mf.sortdirty = true
+                    mf:Refresh()
                 else
                     mf.eb_dkpchange:SetFocus()
                     mf.eb_dkpchange:HighlightText()

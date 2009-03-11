@@ -17,6 +17,17 @@
 
 fRaid.Instance = {}
 
+function fRaid.Instance.Count(recount)
+    if recount then
+        local count = 0
+        for name, obj in pairs(fRaid.db.global.Instance.ZoneList) do
+            count = count + 1
+        end
+        fRaid.db.global.Instance.Count = count
+    end
+    return fRaid.db.global.Instance.Count
+end
+
 function fRaid.Instance.GetObject(zonename, createnew)
     local obj = fRaid.db.global.InstanceList[zonename]
     if createnew and not obj then
