@@ -117,7 +117,7 @@ end
 function fRaid.Item.Scan()
 	for i = 1, GetNumLootItems() do
 		if LootSlotIsItem(i) then
-			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
+--			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
 			fRaid.Item.GetObjectByLink(GetLootSlotLink(i), true)
 		end
 	end
