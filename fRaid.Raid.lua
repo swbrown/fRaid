@@ -129,6 +129,93 @@ function fRaid.Raid.TrackRaiders()
     fRaid.db.global.Raid.CurrentRaid.RaiderList = newraiderlist
 end
 
+function fRaid.Raid.MergeRaidLists(l1, l2)
+    --merge raidlists...
+    
+    --compile complete user list
+    local names = {}
+    for name, data in pairs(l1) do
+        names[name] = true
+    end
+    
+    for name, data in pairs(l2) do
+        names[name] = true
+    end
+    
+    local l11, l22
+    local i11, i22
+    local r11, r22
+    
+    local keepgoing = true
+    local keepgoingi = 1
+    local keepgoinglimit = 10000
+    
+    local stoppedmatching = false
+    
+    for name, _ in pairs(names) do
+        print('scanning ' .. name)
+        l11 = l1[name]
+        l22 = l2[name]
+        
+        if not l11 or not l22 then
+            if l11 then
+            l2[name] = l11
+            elseif l22 then
+            l1[name] = l22
+            end
+        else
+            i11 = 1
+            i22 = 1
+            keepgoing = true
+            keepgoingi = 1
+            while keepgoing do
+                r11 = l11[i11]
+                r22 = l22[i22]
+                
+                if not r11 or not r22 then
+                    if r11 then
+                        tinsert(l22, r11)
+                        i11 = i11 + 1
+                        i22 = i22 + 1
+                    elseif r22 then
+                        tinsert(l11, r22)
+                        i11 = i11 + 1
+                        i22 = i22 + 1
+                    else
+                        keepgoing = false
+                        print('l11 ended at i11 = ' .. i11)
+                        print('l22 ended at i22 = ' .. i22)
+                    end
+                else
+                    if r11.StartTime == r22.StartTime then
+                        if stoppedmatching then
+                            stoppedmatching = false
+                            print('resumed matching at i11 = ' .. i11 .. ', ' .. 'i22 = ' .. i22)
+                        end
+                        i11 = i11 + 1
+                        i22 = i22 + 1
+                    else
+                        if not stoppedmatching then
+                            stoppedmatching = true
+                            print('stopped matching at i11 = ' .. i11 .. ', ' .. 'i22 = ' .. i22)
+                        end
+                        if r11.StartTime < r22.StartTime then
+                            tinsert(l22, i22, r11)
+                        else
+                            tinsert(l11, i11, r22)
+                        end
+                    end
+                end
+                
+                keepgoingi = keepgoingi + 1
+                if keepgoingi > keepgoinglimit then
+                    keepgoing = false
+                end
+            end
+        end
+    end
+end
+
 --==================================================================================================
 
 function fRaid.Raid.View()

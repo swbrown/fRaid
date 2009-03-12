@@ -169,8 +169,127 @@ function LIST.RecalculateDkp()
     
     wipe(fRaid.db.global.Player.PlayerList)
     fRaid.db.global.Player.PlayerList = newList
+    fRaid.db.global.Player.LastModified = latesttimestamp
     
     fRaid:Print('Player List recalculated. ' .. LIST.Count(true) .. ' found.')
+end
+
+function LIST.CompareDkpList(t1, t2)
+    local extrat1names = {}
+    local extrat2names = {}
+    local data2
+    
+    for name, data in pairs(t1) do
+        if not t2[name] then
+            tinsert(extrat1names, name)
+        else
+            data2 = t2[name]
+            if data.dkp == data2.dkp then
+                fRaid:Print('match ', name)
+            else
+                fRaid:Print('NOT match ', name .. ':' .. data.dkp .. ',' .. data2.dkp)
+            end
+        end
+    end
+    for name, data in pairs(t2) do
+        if not t1[name] then
+            tinsert(extrat2names, name)
+        end
+    end
+    
+    if #extrat1names > 0 then
+        fRaid:Print('extra names in 1st list: ', unpack(extrat1names))
+    end
+    if #extrat2names > 0 then
+        fRaid:Print('extra names in 2nd list: ', unpack(extrat2names))
+    end
+end
+
+function fRaid.Player.MergeChangeLists(l1, l2)
+    --merge changelists...
+    
+    --compile complete user list
+    local names = {}
+    for name, data in pairs(l1) do
+        names[name] = true
+    end
+    
+    for name, data in pairs(l2) do
+        names[name] = true
+    end
+    
+    local l11, l22
+    local i11, i22
+    local r11, r22
+    
+    local keepgoing = true
+    local keepgoingi = 1
+    local keepgoinglimit = 10000
+    
+    local stoppedmatching = false
+    
+    for name, _ in pairs(names) do
+        print('scanning ' .. name)
+        l11 = l1[name]
+        l22 = l2[name]
+    
+        if not l11 or not l22 then
+            if l11 then
+                l2[name] = l11
+            elseif l22 then
+                l1[name] = l22
+            end
+        else
+            i11 = 1
+            i22 = 1
+            keepgoing = true
+            keepgoingi = 1
+            while keepgoing do
+                r11 = l11[i11]
+                r22 = l22[i22]
+    
+                if not r11 or not r22 then
+                    if r11 then
+                        tinsert(l22, r11)
+                        i11 = i11 + 1
+                        i22 = i22 + 1
+                    elseif r22 then
+                        tinsert(l11, r22)
+                        i11 = i11 + 1
+                        i22 = i22 + 1
+                    else
+                        keepgoing = false
+                        print('l11 ended at i11 = ' .. i11)
+                        print('l22 ended at i22 = ' .. i22)
+                    end
+                else
+                    if r11[4] == r22[4] then
+                        if stoppedmatching then
+                            stoppedmatching = false
+                            print('resumed matching at i11 = ' .. i11 .. ', ' .. 'i22 = ' .. i22)
+                        end
+                        i11 = i11 + 1
+                        i22 = i22 + 1
+                    else
+                        if not stoppedmatching then
+                            stoppedmatching = true
+                            print('stopped matching at i11 = ' .. i11 .. ', ' .. 'i22 = ' .. i22)
+                        end
+                        if r11[4] < r22[4] then
+                            tinsert(l22, i22, r11)
+                        else
+                            tinsert(l11, i11, r22)
+                        end
+                    end
+                end
+    
+                keepgoingi = keepgoingi + 1
+                if keepgoingi > keepgoinglimit then
+                    keepgoing = false
+                end
+            end
+        end
+    end
 end
 
 --===========================================================================================

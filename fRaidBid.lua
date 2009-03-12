@@ -271,6 +271,65 @@ function BIDLIST.RefreshBids()
 	end
 end
 
+function BIDLIST.MergeWinnerLists(l1, l2)
+    fRaid:Print('starting list 1 contains ' .. #l1 .. ' items')
+    fRaid:Print('starting list 2 contains ' .. #l2 .. ' items')
+
+    --winnerlist compare...
+    local keepgoing = true
+    local keepgoingi = 1
+    local keepgoinglimit = 2000
+    
+    local w1, w2
+    local i1 = 1
+    local i2 = 1
+    
+    local stoppedmatching = false
+    
+    while keepgoing do
+        w1 = l1[i1]
+        w2 = l2[i2]
+        
+        if not w1 or not w2 then
+            if w1 then
+                tinsert(l2, w1)
+                i1 = i1 + 1
+                i2 = i2 + 1
+            elseif w2 then
+                tinsert(l1, w2)
+                i1 = i1 + 1
+                i2 = i2 + 1
+            else
+                keepgoing = false
+                print('w1 ended at i1 = ' .. i1)
+                print('w2 ended at i2 = ' .. i2)
+            end
+        elseif w1.name == w2.name and w1.time == w2.time then
+            if stoppedmatching then
+                stoppedmatching = false
+                print('resumed matching at i1 = ' .. i1 .. ' , i2 = ' .. i2)
+            end
+            i1 = i1 + 1
+            i2 = i2 + 1
+        else
+            if not stoppedmatching then
+                stoppedmatching = true
+                print('stopped matching at i1 = ' .. i1 .. ' , i2 = ' .. i2)
+                print(w1.name, w1.time, w2.name, w2.time)
+            end
+            if w1.time < w2.time then
+                tinsert(l2, i2, w1)
+            else
+                tinsert(l1, i1, w2)
+            end
+        end
+        
+        keepgoingi = keepgoingi + 1
+        if keepgoingi > keepgoinglimit then
+            keepgoing = false
+        end
+    end
+end
 
 --==================================================================================================
 --Functions for stuff
@@ -481,15 +540,16 @@ function fRaidBid.LOOT_SLOT_CLEARED(eventName, slotnumber)
 	if db.activeiteminfo and db.activebidinfo and db.activelootlinks then
 		if db.activelootlinks[slotnumber] == db.activeiteminfo.link then
 			db.activebidinfo.awarded = true
-			db.activeiteminfo = nil
-			db.activebidinfo = nil
-			db.activelootlinks = nil
 			
 			db.activeiteminfo.countawarded = db.activeiteminfo.countawarded + 1
 			--close biditem
 			if db.activeiteminfo.countawarded >= db.activeiteminfo.count then
-				db.activeiteminfo.isopen = false
+			db.activeiteminfo.isopen = false
 			end
+			
+			db.activeiteminfo = nil
+			db.activebidinfo = nil
+			db.activelootlinks = nil
 			
 			addon.RefreshGUI()
 		end
