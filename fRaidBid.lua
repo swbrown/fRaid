@@ -462,12 +462,12 @@ function addon.AnnounceWinningBids()
 		for idx2,bidinfo in ipairs(iteminfo.bids) do
 			if bidinfo.winner then
 				nobodywon = false
-				SendChatMessage(iteminfo.number .. ' ' .. bidinfo.name .. ' is winning ' .. iteminfo.link .. ' for ' .. bidinfo.actual, 'RAID')
+				SendChatMessage(iteminfo.number .. ' ' .. bidinfo.name .. ' has won ' .. iteminfo.link .. ' for ' .. bidinfo.actual, 'RAID')
 				--print(iteminfo.number .. ' ' .. bidinfo.name .. ' is winning ' .. iteminfo.link, 'RAID')
 			end
 		end
 		if nobodywon then
-			SendChatMessage(iteminfo.number .. ' nobody is winning ' .. iteminfo.link, 'RAID')
+			SendChatMessage(iteminfo.number .. ' nobody wants ' .. iteminfo.link, 'RAID')
 		end
 	end
 end
