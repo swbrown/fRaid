@@ -536,7 +536,7 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 end
 
 function fRaidBid.LOOT_SLOT_CLEARED(eventName, slotnumber)
-	print(eventName .. ' slotnumber = ' .. slotnumber)
+--	print(eventName .. ' slotnumber = ' .. slotnumber)
 	if db.activeiteminfo and db.activebidinfo and db.activelootlinks then
 		if db.activelootlinks[slotnumber] == db.activeiteminfo.link then
 			db.activebidinfo.awarded = true
