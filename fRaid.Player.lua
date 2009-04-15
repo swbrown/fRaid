@@ -14,7 +14,7 @@
 
 --for reference
 --fRaid.db.global.Player.PlayerList {name => {dkp, attendance}
---fRaid.db.global.Player.ChangeList {myname => {idx => {name, action, note, oldvalue, newvalue}}}
+--fRaid.db.global.Player.ChangeList {myname => {idx => {name, action, note, timestamp, oldvalue, newvalue}}}
 --fRaid.db.global.Player.Count
 --fRaid.db.global.Player.LastModified
 --fRaid.GUI2.PlayerFrame
@@ -441,7 +441,6 @@ function fRaid.Player.View()
                 table.wipe(mf.index_to_name)
                 mf.lastmodified = fRaid.db.global.Player.LastModified
                 
-                local obj, previ
                 for name,data in pairs(fRaid.db.global.Player.PlayerList) do
                     tinsert(mf.index_to_name, name)
                 end
