@@ -130,7 +130,7 @@ local defaults = {
 
 
 --incoming messages
-local function WhisperFilter(msg)
+local function WhisperFilter(self, event, msg)
 	addon:Debug("<<Whisperfilter>>")
 	msg = strlower(strtrim(msg))
 	if strfind(msg, addon.db.global.prefix.bid) == 1 then
@@ -145,7 +145,7 @@ local function WhisperFilter(msg)
 end
 
 --outgoing messages
-local function WhisperFilter2(msg)
+local function WhisperFilter2(self, event, msg)
 	if strfind(msg, "%[" .. NAME .. "%]") == 1 then
 		return true
 	end
