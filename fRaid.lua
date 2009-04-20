@@ -194,7 +194,6 @@ function addon:OnInitialize()
 	fRaidBid:OnInitialize()
 	--fRaidMob:OnInitialize()
 	fRaid.Player.OnInitialize()
-	addon:CreateGUI()
 	
 	self:Debug("<<OnInitialize>> end")
 end
@@ -301,115 +300,6 @@ function addon.GetBidPrefix()
 end
 
 --==================================================================================================
---GUI Creation
-function addon:CreateGUI()
-	local padding = 8
-	local x = 8
-	local y = 8
-	local bg, fs, button
-	
-	local function savecoordshandler(window)
-		db.gui.x = window:GetLeft()
-		db.gui.y = window:GetTop()
-	end
-	
-	--Main Window
-	addon.GUI = fLibGUI.CreateEmptyFrame(2, NAME .. '_MW')
-	local mw = addon.GUI
-	--mw:RegisterAllEvents()
-	--mw:SetScript('OnEvent', function(this, event, ...)
-	--	if event ~= 'CHAT_MSG_ADDON' then
-	--		print(event .. '>>' .. strjoin(',', unpack({...})))
-	--	end
-	--end)
-	
-	mw:SetWidth(300)
-	mw:SetHeight(150)
-	mw:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', db.gui.x, db.gui.y)
-		
-	--Title
-	fs = fLibGUI.CreateLabel(mw)
-	fs:SetText(NAME)
-	fs:SetPoint('TOP', 0, -y)
-	y = y + fs:GetHeight() + padding
-	
-	--Close Button
-	button = fLibGUI.CreateActionButton(mw)
-	button:SetText('Close')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function()
-		mw:Toggle()
-	end)
-	button:SetPoint('BOTTOMRIGHT', mw, 'BOTTOMRIGHT', -padding-8, padding+8)
-	
-	--Initialize tables for storage
-	mw.AddLoot = {}
-	mw.AddInvLoot = {}
-	
-	--Some functions for mainwindow
-	function mw:SaveLocation()
-		db.gui.x = self:GetLeft()
-		db.gui.y = self:GetTop()
-	end
-	--Scripts for mainwindow
-	mw:SetScript('OnHide', function()
-		this:SaveLocation()
-	end)
-	
-	--Buttons
-	button = fLibGUI.CreateActionButton(mw)
-	button:SetText('Open Bid Window')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() fRaidBid:ToggleGUI()  end)
-	button:SetPoint('TOPLEFT', x, -y)
-
-	x = x + 120
-	button = fLibGUI.CreateActionButton(mw)
-	button:SetText('Open DKP Window')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function()
-		fRaid.View()
-	end)
-	button:SetPoint('TOPLEFT', x, -y)
-
-	x = padding
-	y = y + button:GetHeight() + padding
-	
-	button = fLibGUI.CreateActionButton(mw)
-	button:SetText('Configure Loot')
-	button:SetWidth(button:GetTextWidth())
-	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() fRaid:View()  end)
-	button:SetPoint('TOPLEFT', x, -y)
-	
-	y = y + button:GetHeight() + padding
-	
-	fs = fLibGUI.CreateLabel(mw)
-	fs:SetText('Award dkp to raid')
-	fs:SetPoint('TOPLEFT', x, -y)
-	
-	x = x + fs:GetWidth() + padding
-	
-	local eb = fLibGUI.CreateEditBox(mw, '#')
-	eb:SetPoint('TOPLEFT', x, -y)
-	eb:SetWidth(60)
-	eb:SetNumeric(true)
-	eb:SetNumber(0)
-	eb:SetScript('OnEnterPressed', function() 
-		if eb:GetNumber() > 0 then
-			fRaid.Player.AddDkpToRaid(eb:GetNumber(), true)
-		end
-		this:ClearFocus()
-		eb:SetNumber(0)
-	end)
-	
-	--Separator
-	local tex = fLibGUI.CreateSeparator(mw, -y)
-	y = y + tex:GetHeight() + padding
-end
 
 --GUI Creation
 function fRaid.View()
@@ -645,7 +535,7 @@ function fRaid.View()
 			mw:HideSubFrames()
 			mw.MenuFrame:UnselectButtons()
 			this.highlightspecial:Show()
-			--fRaid.Raid.Vew()
+			fRaid.Raid.View()
 		end)
 		button:SetPoint('TOPLEFT', mw.MenuFrame.buttons[bix-1], 'BOTTOMLEFT', 0, -padding)
 		bix = bix + 1

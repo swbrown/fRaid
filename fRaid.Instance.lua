@@ -29,7 +29,7 @@ function fRaid.Instance.Count(recount)
 end
 
 function fRaid.Instance.GetObject(zonename, createnew)
-    local obj = fRaid.db.global.InstanceList[zonename]
+    local obj = fRaid.db.global.Instance.ZoneList[zonename]
     if createnew and not obj then
         --create a new one
         obj = {}

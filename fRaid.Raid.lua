@@ -72,7 +72,8 @@ end
 
 --track the raiders who have joined or left the raid
 function fRaid.Raid.TrackRaiders()
-    print('Tracking raiders...')
+--TODO:need to fix this.. it hink it's spamming the  RAID_ROSTER_UPDATE event.
+    --print('Tracking raiders...')
     local name, raiderobj, timestampobj
     local newraiderlist = {}
     
@@ -222,5 +223,33 @@ function fRaid.Raid.View()
     local mf = fRaid.GUI2.RaidFrame
 
     if not mf.viewedonce then
+    	local ui
+    	
+    	--Award Dkp
+    	ui = fLibGUI.CreateLabel(mf)
+    	ui:SetText('Award dkp to raid')
+    	ui:SetPoint('TOPLEFT', 5, -5)
+    	
+    	local x = ui:GetWidth() + 13
+    	
+    	ui = fLibGUI.CreateEditBox(mf, '#')
+    	ui:SetPoint('TOPLEFT', x, -4)
+    	ui:SetWidth(60)
+    	ui:SetNumeric(true)
+    	ui:SetNumber(0)
+    	ui:SetScript('OnEnterPressed', function() 
+    		if this:GetNumber() > 0 then
+    			fRaid.Player.AddDkpToRaid(this:GetNumber(), true)
+    		end
+    		this:ClearFocus()
+    		this:SetNumber(0)
+    	end)
+    	
+    	--Start/Stop Tracking
+    	
+    	
+    	mf.viewedonce = true
     end
+    
+    mf:Show()
 end

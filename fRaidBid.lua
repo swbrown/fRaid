@@ -825,7 +825,8 @@ function fRaidBid.CreateGUI()
 		end
 		
 		if #bids > bidrowcount then
-			mw_bids.slider:SetMinMaxValues(1, BIDLIST.GetCount() - itemrowcount + 1)
+			--mw_bids.slider:SetMinMaxValues(1, BIDLIST.GetCount() - itemrowcount + 1)
+			mw_bids.slider:SetMinMaxValues(1, #bids - bidrowcount + 1)
 		else
 			mw_bids.slider:Hide()
 		end
