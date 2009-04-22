@@ -316,6 +316,9 @@ function fRaid.Player.AddDkp(name, amount, note)
     local newamount = objcopy.dkp + amount
     
     --dkp cap
+    if type(fRaid.db.global.cap) == 'string' then
+    	fRaid.db.global.cap = tonumber(fRaid.db.global.cap)
+    end
     if fRaid.db.global.cap > 0 then
         if newamount > fRaid.db.global.cap then
             newamount = fRaid.db.global.cap

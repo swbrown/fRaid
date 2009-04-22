@@ -72,7 +72,6 @@ end
 
 --track the raiders who have joined or left the raid
 function fRaid.Raid.TrackRaiders()
---TODO:need to fix this.. it hink it's spamming the  RAID_ROSTER_UPDATE event.
     --print('Tracking raiders...')
     local name, raiderobj, timestampobj
     local newraiderlist = {}
