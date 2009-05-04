@@ -450,7 +450,7 @@ end
 
 function addon.AnnounceBidItems()
 	for idx,iteminfo in ipairs(BIDLIST.GetList()) do
-		local msg = iteminfo.number .. ' ' .. iteminfo.link .. ' /w ' .. MYNAME .. ' ' .. fRaid.GetBidPrefix() .. ' number amount'
+		local msg = iteminfo.number .. ' ' .. iteminfo.link .. ' /w ' .. MYNAME .. ' ' .. fRaid.GetBidPrefix() .. ' ' .. iteminfo.number .. ' amount'
 		SendChatMessage(msg, 'RAID')
 	end
 end

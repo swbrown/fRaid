@@ -2,6 +2,7 @@
 -- Create Date : 1/7/2009 10:41:06 AM
 
 --fRaid.db.global.Raid.CurrentRaid
+--fRaid.db.global.Raid.IsAwardProgressionTimerOn
 --fRaid.db.global.Raid.RaidList
 --fRaid.db.global.Raid.LastModified
 --fRaid.GUI2.RaidFrame
@@ -56,6 +57,7 @@ end
 function fRaid.Raid.Stop()
     --stop tracking
     fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
+	fRaid.Raid.StopProgressionDkpTimer()
 
     --archive CurrentRaid
     if not fRaid.db.global.Raid.RaidList[UnitName('player')] then
@@ -127,6 +129,27 @@ function fRaid.Raid.TrackRaiders()
     end
     
     fRaid.db.global.Raid.CurrentRaid.RaiderList = newraiderlist
+end
+
+--should only be called by the scheduled timer
+function fRaid.Raid.AwardProgressionDkp()
+	if fRaid.db.global.Raid.CurrentRaid and fRaid.db.global.Raid.IsAwardProgressionTimerOn then
+		fRaid.Player.AddDkpToRaid(5, true)
+	end
+end
+
+function fRaid.Raid.StartProgressionDkpTimer()
+	fRaid.db.global.Raid.IsAwardProgressionTimerOn = true
+	fRaid:Print('Progression Dkp Timer started.')
+end
+
+function fRaid.Raid.StopProgressionDkpTimer()
+	 fRaid.db.global.Raid.IsAwardProgressionTimerOn = false
+	 fRaid:Print('Progression Dkp Timer stopped.')
+end
+
+function fRaid.Raid.CalculatePlayerAttendance(name)
+
 end
 
 function fRaid.Raid.MergeRaidLists(l1, l2)
@@ -245,7 +268,29 @@ function fRaid.Raid.View()
     	end)
     	
     	--Start/Stop Tracking
-    	
+    	--fRaid.Raid.StartProgressionDkpTimer()
+    	ui = fLibGUI.CreateActionButton(mf)
+    	--mw.MenuFrame.buttons[i]:SetFrameLevel(3)
+    	--mw.MenuFrame.buttons[i].highlightspecial = mw.MenuFrame.buttons[i]:CreateTexture(nil, "BACKGROUND")
+    	--mw.MenuFrame.buttons[i].highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+    	--mw.MenuFrame.buttons[i].highlightspecial:SetBlendMode("ADD")
+    	--mw.MenuFrame.buttons[i].highlightspecial:SetAllPoints(mw.MenuFrame.buttons[i])
+    	--mw.MenuFrame.buttons[i].highlightspecial:Hide()
+    	ui:SetText('Start/Stop Progression Dkp Timer')
+    	ui:SetWidth(ui:GetTextWidth())
+    	ui:SetHeight(ui:GetTextHeight())
+    	ui:SetScript('OnClick', function()
+    		if fRaid.db.global.Raid.CurrentRaid then
+    			if not fRaid.db.global.Raid.IsAwardProgressionTimerOn then
+    				fRaid.Raid.StartProgressionDkpTimer()
+    			else
+    				fRaid.Raid.StopProgressionDkpTimer()
+    			end
+    		else
+    			fRaid:Print('Raid tracking is not on.')
+    		end
+    	end)
+    	ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -30)
     	
     	mf.viewedonce = true
     end

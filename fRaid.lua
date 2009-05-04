@@ -195,6 +195,9 @@ function addon:OnInitialize()
 	--fRaidMob:OnInitialize()
 	fRaid.Player.OnInitialize()
 	
+	self.ProgressionDkpTimer = self:ScheduleRepeatingTimer(fRaid.Raid.AwardProgressionDkp, 1800)
+	
+	
 	self:Debug("<<OnInitialize>> end")
 end
 
