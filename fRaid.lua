@@ -110,6 +110,11 @@ local defaults = {
 		cap = 0, --0 should mean no cap
 		ItemList = {},
 		AuctionList = {},
+		Item = {
+			ItemList = {},
+			Count = 0,
+			LastModified = 0,
+		},
 		Player = {
 		  PlayerList = {},
 		  ChangeList = {},

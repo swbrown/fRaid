@@ -7,110 +7,64 @@
 --fRaid.db.global.ItemListIndexCount
 --fRaid.GUI2.ItemFrame
 
+--Goals:
+--  Keeps a listing of items and their min dkp and any other data might add later
+
+--Data Structures:
+--  ItemList - table, key = item id, value = item data
+--  item data - list, {name, link, rarity, mindkp}
+
+--fRaid.db.global.Item.ItemList
+--fRaid.db.global.Item.Count
+--fRaid.db.global.Item.LastModified
+--fRaid.GUI2.ItemFrame
+
 fRaid.Item = {}
 
---retrieves index of the itemobj with itemid
-function fRaid.Item.ItemIdToIndex(itemid)
-	if not fRaid.db.global.ItemListIndex then
-		fRaid.Item.RefreshIndex()
-	else
-		return fRaid.db.global.ItemListIndex[itemid]
-	end
+local function createitemobj(name, link, rar, dkp)
+	local obj = {
+		name = name,
+		link = link,
+		rarity = rar,
+		mindkp = dkp,
+	}
+	
+	return obj
 end
 
---recreates the ItemListIndex (maps itemid to index)
-function fRaid.Item.RefreshIndex(announceduplicates)
-	if not fRaid.db.global.ItemListIndex then
-		fRaid.db.global.ItemListIndex = {}
-	else
-		wipe(fRaid.db.global.ItemListIndex)
-		fRaid.db.global.ItemListIndexCount = 0
-	end
-	local count = 0
-	for idx, obj in ipairs(fRaid.db.global.ItemList) do
-		if obj.isvalid then
-			if fRaid.db.global.ItemListIndex[obj.id] and announceduplicates then
-				fRaid:Print('ERROR: duplicate item found.  ID:', obj.id, ', index:', idx, '.')
-			end
-			fRaid.db.global.ItemListIndex[obj.id] = idx
-			count = count + 1
-		end
-	end
-	fRaid.db.global.ItemListIndexCount = count
+function fRaid.Item.Count(recount)
+    if recount then
+        local count = 0
+        for id, data in pairs(fRaid.db.global.Item.ItemList) do
+            count = count + 1
+        end
+        fRaid.db.global.Item.Count = count
+    end
+    
+    return fRaid.db.global.Item.Count
 end
 
-function fRaid.Item.GetCount()
-	return fRaid.db.global.ItemListIndexCount
-end
 
---returns an itemobj
-function fRaid.Item.GetObjectByIndex(idx)
-	return fRaid.db.global.ItemList[idx]
-end
 
 function fRaid.Item.GetObjectByLink(itemlink, createnew)
 	--extract id
 	local itemid = fRaid:ExtractItemId(itemlink)
-	
 	return fRaid.Item.GetObjectById(itemid, createnew)
 end
 
---returns itemobj, idx
+--returns itemobj
 function fRaid.Item.GetObjectById(itemid, createnew)
-	local obj, idx
-	idx = fRaid.Item.ItemIdToIndex(itemid)
-	if idx then
-		obj = fRaid.db.global.ItemList[idx]
-		if not obj then
-			--something is wrong with IndexList
-			fRaid.Item.RefreshIndex()
-			idx = fRaid.Item.ItemIdToIndex(itemid)
-			obj = fRaid.db.global.ItemList[idx]
-		end
-	end
-	
-	if not obj and createnew then
+    local obj = fRaid.db.global.Item.ItemList[itemid]
+    if not obj and createnew then
 		--save
 		local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemid)
 
-		obj = {
-			id = itemid,
-			name = itemName,
-			link = itemLink,
-			rarity = itemRarity,
-			mindkp = 0,
-			bossIdxList = {},
-			isvalid = true
-		}
-		tinsert(fRaid.db.global.ItemList, obj)
-		
-		--update IndexList
-		idx = #fRaid.db.global.ItemList
-		fRaid.db.global.ItemListIndex[itemid] = idx
+		obj = createitemobj(itemName, itemLink, itemRarity, 0)
+		fRaid.db.global.Item.ItemList[itemid] = obj
+		fRaid.db.global.Item.Count = fRaid.db.global.Item.Count + 1
+		fRaid.db.global.Item.LastModified = fLib.GetTimestamp()
 	end
-	return obj, idx
-end
-
-function fRaid.Item.RemoveById(itemid)
-	local obj, idx = fRaid.Item.GetObjectById(itemid)
-	if obj then
-		--remove from bosses that it belongs to
-		local bossobj
-		for _, bossidx in ipairs(obj.bossIdxList) do
-			bossobj = fRaid.Boss.GetObjectByIndex(bossidx)
-			for qidx, itemidx in ipairs(bossobj.itemIdxList) do
-				if itemidx == idx then
-					tremove(bossobj.itemIdxList, qidx)
-					break
-				end
-			end
-		end
-		
-		--delete
-		obj.isvalid = false
-		--remove from index
-		fRaid.db.global.ItemListIndex[obj.id] = nil
-	end
+	return obj
 end
 
 --add items in the currently open loot window
@@ -123,575 +77,421 @@ function fRaid.Item.Scan()
 	end
 end
 
---[[
-function fRaid.Item.GetInfo(id)
-	local items = fRaid.db.global.ItemList
-	for idx,info in ipairs(items) do
-		if info.id == id then
-			return info
-		end
-	end
-end
---]]
-
 
 function fRaid.Item.View()
 	local mf = fRaid.GUI2.ItemFrame
 	
 	if not mf.viewedonce then
-		local b, eb, tex, ix, ui
-		mf.rowheight= 12
-		mf.startingrow = 1
-		mf.availablerows = 15
+		print('generating fRaid.GUI2.ItemFrame')
+		--create index table
+		mf.index_to_id = {}
+		mf.lastmodified = 0--fRaid.db.global.Item.LastModified
+        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 6)
+        
+        function mf:RetrieveData(index)
+            if not index or index < 1 then
+                index = self.table.selectedindex
+            end
+            
+            local id, data
+            id = self.index_to_id[index]
+            data = fRaid.db.global.Item.ItemList[id]
+            
+            return id, data
+        end
+        
+        function mf:RefreshIndex(force)
+            if mf.lastmodified ~= fRaid.db.global.Item.LastModified or force then
+                table.wipe(mf.index_to_id)
+                mf.lastmodified = fRaid.db.global.Item.LastModified
+                
+                for id, data in pairs(fRaid.db.global.Item.ItemList) do
+                    tinsert(mf.index_to_id, id)
+                end
+                
+                local max = #mf.index_to_id - mf.table.rowcount + 1
+                if max < 1 then
+                    max = 1
+                end
+                mf.table.slider:SetMinMaxValues(1, max)
+                mf.sortdirty = true
+            end
+        end
 
-		mf.mincolwidth = 20
-		mf.mincolheight = mf.rowheight * mf.availablerows + mf.availablerows + mf.rowheight
-		--#rows times height of each row plus 1 for each separator plus header row
-		mf.maxwidth = mf:GetWidth() - 25
-
-		--create ListIndex for sorting
-		mf.ListIndex = {}
-		mf.selectedindexnum = 0
-		mf.previtemlistcount = 0
-		
-		mf.prevsortcol = 1
-		
-		function mf:SelectedData(indexnum)
-			local itemnum, itemobj
-			if not indexnum or indexnum < 1 then
-				indexnum = mf.selectedindexnum
-			end
-			
-			itemnum = mf.ListIndex[indexnum]
-			itemobj = fRaid.Item.GetObjectByIndex(itemnum)
-			--fRaid.db.global.ItemList[itemnum]
-			return itemnum, itemobj
+		--click on a header
+		function mf:ClickHeader()
+			mf.sortdirty = true
+			self:Sort()
+			self:LoadRows()
 		end
 		
-		--create ui elements
-		
-		--table with 4 columns
-		--Name, MinDkp, Rarity, Id
-		
-		
-		mf.columnframes = {}	
-		local currentframe	
-		for i = 1, 3 do
-			currentframe = fLibGUI.CreateClearFrame(mf)
-			tinsert(mf.columnframes, currentframe)
-			
-			currentframe.enable = true
-			
-			currentframe:SetHeight(mf.mincolheight)
-			currentframe:SetResizable(true)
-			currentframe:SetMinResize(mf.mincolwidth, mf.mincolheight)
-			
-			--header button
-			b = fLibGUI.CreateActionButton(currentframe)
-			currentframe.headerbutton = b
-			b.colnum = i
-			b:GetFontString():SetJustifyH('LEFT')
-			b:SetHeight(mf.rowheight)
-			b:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 0, 0)
-			b:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -4, 0)
-			b:SetText('test')
-			
-			b:SetScript('OnClick', function()
-				mf:Sort(this.colnum)
-				mf:LoadRows()
-			end)			
-			
-			--resize button
-			b = fLibGUI.CreateActionButton(currentframe)
-			currentframe.resizebutton = b
-			b:GetFontString():SetJustifyH('LEFT')
-			b:SetWidth(4)
-			b:SetHeight(mf.mincolheight)
-			b:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', 0,0)
-			b:RegisterForDrag('LeftButton')
-			
-			b:SetScript('OnDragStart', function(this, button)
-				this:GetParent():StartSizing('RIGHT')
-				this.highlight:Show()
-			end)
-			b:SetScript('OnDragStop', function(this, button)
-				this:GetParent():StopMovingOrSizing()
-				this.highlight:Hide()
-				mf:ResetColumnFramePoints()
-			end)
-			
-			--cell labels
-			currentframe.cells = {}
-			for j = 1, mf.availablerows do
-				ui = fLibGUI.CreateLabel(currentframe)
-				tinsert(currentframe.cells, ui)
-				ui:SetJustifyH('LEFT')
-			end
+		--click on a row
+		function mf:ClickRow()
+            self:RefreshDetails()
 		end
 		
-		mf.columnframes[1].headerbutton:SetText('Name')
-		mf.columnframes[1]:SetWidth(275)
-		mf.columnframes[2].headerbutton:SetText('MinDkp')
-		mf.columnframes[2]:SetWidth(50)
-		mf.columnframes[3].headerbutton:SetText('Rarity')
-		mf.columnframes[3]:SetWidth(50)
-		--mf.columnframes[4].headerbutton:SetText('Id')
-		--mf.columnframes[4]:SetWidth(75)
-		
-		--rowbutton for each row
-		mf.rowbuttons = {}
-		local rowoffset = 0
-		for i = 1, mf.availablerows do
-			rowoffset = mf.rowheight * i + i
-			
-			--separator
-			tex = fLibGUI.CreateSeparator(mf)
-			tex:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - rowoffset)
-			tex:SetWidth(mf.maxwidth)
-			
-			--rowbutton
-			b = fLibGUI.CreateActionButton(mf)
-			tinsert(mf.rowbuttons, b)
-
-			b.indexnum = 0
-			
-			b:SetFrameLevel(4)
-			b:GetFontString():SetJustifyH('LEFT')
-			b:SetHeight(mf.rowheight)
-			b:SetWidth(mf.maxwidth)
-			b:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -6-rowoffset)
-			--b:SetPoint('TOPRIGHT', mf, 'TOPRIGHT', -5, -6-rowoffset)
-			
-			b.highlightspecial = b:CreateTexture(nil, "BACKGROUND")
-			b.highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
-			b.highlightspecial:SetBlendMode("ADD")
-			b.highlightspecial:SetAllPoints(b)
-			b.highlightspecial:Hide()
-			
-			b:SetScript('OnClick', function()
-				--unselect all the other rows
-				for i = 1, mf.availablerows do
-					mf.rowbuttons[i].highlightspecial:Hide()
-				end
-				
-				--select this row
-				this.highlightspecial:Show()
-				mf.selectedindexnum = this.indexnum
-				
-				--fill in details
-				mf:RefreshDetails()
-			end)
-			
-			b:SetScript('OnEnter', function()
-				this.highlight:Show()
-				GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-				GameTooltip:SetPoint('LEFT', mf, 'RIGHT', 0, 0)
-				local itemnum, itemobj = mf:SelectedData(this.indexnum)
-				if itemobj then
-					GameTooltip:SetHyperlink('item:'..itemobj.id)
-				end
-			end)
-			b:SetScript('OnLeave', function()
-				this.highlight:Hide()
-				GameTooltip:FadeOut()
-			end)
-			
-			--cell location for each column
-			for j = 1, #mf.columnframes do
-				currentframe = mf.columnframes[j]
-				ui = currentframe.cells[i]
-				ui:SetPoint('TOPLEFT', currentframe, 'TOPLEFT', 5, -rowoffset)
-				ui:SetPoint('TOPRIGHT', currentframe, 'TOPRIGHT', -5, -rowoffset)
-			end
-		end
-		
-		--function for resizing columns
-		function mf:ResetColumnFramePoints()
-			local enabledcolumns = {}
-			for i = 1, #mf.columnframes do
-				if mf.columnframes[i].enable then
-					tinsert(enabledcolumns, i)
-				end
-			end
-			
-			local firstcolumndone = false
-			local runningwidth = 0
-			local currentcol, currentframe, prevframe, maxw, curw
-			for i = 1, #enabledcolumns do
-				currentcol = enabledcolumns[i]
-				currentframe = mf.columnframes[currentcol]
-
-				if not firstcolumndone then
-					currentframe:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -5)
-					firstcolumndone = true
-				else
-					currentframe:SetPoint('TOPLEFT', prevframe, 'TOPRIGHT', 0,0)
-				end
-				
-				--calculate allowed width, current width
-				maxw = mf.maxwidth - runningwidth - (mf.mincolwidth * (#enabledcolumns - i))
-				curw = currentframe:GetRight() - currentframe:GetLeft()
-				--check if its larger than allowed width
-				if curw > maxw then
-					currentframe:SetWidth(maxw)	
-				end
-				runningwidth = runningwidth + currentframe:GetWidth()
-
-				prevframe = currentframe
-			end
-			
-			if #enabledcolumns > 0 then
-				currentcol = enabledcolumns[#enabledcolumns]
-				currentframe = mf.columnframes[currentcol]
-				currentframe:SetPoint('TOPRIGHT', mf, 'TOPLEFT', mf.maxwidth + 5, -5)
-			end
-		end
-		
-		mf:ResetColumnFramePoints()
-		
-		--Scroll bar
-		ui = CreateFrame('slider', nil, mf)
-		mf.slider = ui
-		ui:SetFrameLevel(5)
-		ui:SetOrientation('VERTICAL')
-		ui:SetMinMaxValues(1, 1)
-		ui:SetValueStep(1)
-		ui:SetValue(1)
-		
-		ui:SetWidth(10)
-		ui:SetHeight(mf.mincolheight + mf.rowheight)
-		
-		ui:SetPoint('TOPRIGHT', mf, 'TOPRIGHT', -5, -5)
-		
-		ui:SetThumbTexture('Interface/Buttons/UI-SliderBar-Button-Horizontal')
-		ui:SetBackdrop({
-			  bgFile='Interface/Buttons/UI-SliderBar-Background',
-			  edgeFile = 'Interface/Buttons/UI-SliderBar-Border',
-			  tile = true,
-			  tileSize = 8,
-			  edgeSize = 8,
-			  insets = {left = 3, right = 3, top = 3, bottom = 3}
-			  --insets are for the bgFile
-		})
-
-		ui:SetScript('OnValueChanged', function()
-			mf:LoadRows(this:GetValue())
-		end)
-		
-		mf:EnableMouseWheel(true)
-		mf:SetScript('OnMouseWheel', function(this,delta)
-			local current = this.slider:GetValue()
-			local min,max = this.slider:GetMinMaxValues()
-			if delta < 0 then
-				current = current + 3
-				if current > max then
-					current = max
-				end
-				this.slider:SetValue(current)
-			elseif delta > 0 then
-				current = current - 3
-				if current < min then
-					current = min
-				end
-				this.slider:SetValue(current)
-			end
-		end)
-		
-		--separator
-		tex = fLibGUI.CreateSeparator(mf)
-		tex:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - mf.mincolheight)
-		tex:SetWidth(mf.maxwidth)
-		
-		--Search box
-		ui = fLibGUI.CreateEditBox(mf, 'Search')
-		mf.eb_search = ui
-		mf.search = ''
-		ui:SetPoint('TOPLEFT', tex, 'BOTTOMLEFT', 0, -5)
-		ui:SetWidth(mf.maxwidth)
-		ui:SetScript('OnEnterPressed', function()
-			this:ClearFocus()
-		end)
-		ui:SetScript('OnTextChanged', function()
-			if this:GetText() ~= mf.search then
-				mf.search = this:GetText()
-				mf:LoadRows()
-			end
-		end)
-		
-		--Total Count
-		ui = fLibGUI.CreateLabel(mf)
-		ui:SetPoint('TOPRIGHT', mf.eb_search, 'BOTTOMRIGHT', -40, -5)
-		ui:SetText('Total: ')
-		local prevui = ui
-		
-		mf.title_total = fLibGUI.CreateLabel(mf)
-		mf.title_total:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
-		mf.title_total:SetText('rfg')
-		
-		----------------
-		--Item Details--
-		----------------
-		--NAME
-		ui = fLibGUI.CreateLabel(mf)
-		ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
-		ui:SetText('Name: ')
-		prevui = ui
-		
-		mf.title_name = fLibGUI.CreateLabel(mf)
-		mf.title_name:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
-		mf.title_name:SetText('')
-		
-		--ID
-		ui = fLibGUI.CreateLabel(mf)
-		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
-		ui:SetText('Id:')
-		prevui = ui
-		
-		mf.title_id = fLibGUI.CreateLabel(mf)
-		mf.title_id:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
-		
-		--Min DKP
-		ui = fLibGUI.CreateLabel(mf)
-		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
-		ui:SetText('Min Dkp')
-		prevui = ui
-		
-		ui = fLibGUI.CreateEditBox2(mf, '#')
-		mf.eb_mindkp = ui
-		ui:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
-		ui:SetWidth(60)
-		ui:SetNumeric(true)
-		ui:SetNumber(0)
-		ui:SetScript('OnEnterPressed', function() 
-			local itemnum, itemobj = mf:SelectedData()
-			if itemobj then
-				itemobj.mindkp = this:GetNumber()
-			end
-			
-			this:ClearFocus()
-			this:SetNumber(itemobj.mindkp)
-			
-			--refresh row (just going to refresh entire table)
-			mf:Refresh()
-		end)
-
-
-		--REFRESH
-		function mf:Refresh()
-			--regenerate ItemListIndex if ItemList has changed
-			mf:RefreshListIndex()
-			mf:LoadRows()
-		end
-		
-		--CALLED BY REFRESH directly or indirectly
-		function mf:RefreshDetails()
-			local itemnum, itemobj = mf:SelectedData()
-			if itemobj then
-				mf.title_name:SetText(itemobj.name)
-				mf.title_id:SetText(itemobj.id)
-				mf.eb_mindkp:SetNumber(itemobj.mindkp)
-			else
-				mf.title_name:SetText('')
-				mf.title_id:SetText('')
-				mf.eb_mindkp:SetNumber(0)
-			end
-		end
-		
-		--mf.ListIndex is a list of itemidxs
-		function mf:RefreshListIndex()
-			if mf.previtemlistcount ~= fRaid.Item.GetCount() then
-				mf.previtemlistcount = fRaid.Item.GetCount()
-				wipe(mf.ListIndex)
-				--copy the ItemListIndex
-				for _, itemidx in pairs(fRaid.db.global.ItemListIndex) do
-					tinsert(mf.ListIndex, itemidx)
-				end
-				
-				local max = #mf.ListIndex - mf.availablerows + 1
-				if max < 1 then
-					max = 1
-				end
-				mf.slider:SetMinMaxValues(1, max)
-				mf:Sort(mf.prevsortcol)
-				
-				mf.title_total:SetText(fRaid.Item.GetCount())
-			end
-			--[[
-			if mf.previtemlistcount ~= #fRaid.db.global.ItemList then
-				table.wipe(mf.ListIndex)
-				mf.previtemlistcount = #fRaid.db.global.ItemList
-				local obj, previ
-				for i = 1, #fRaid.db.global.ItemList do
-					tinsert(mf.ListIndex, i)
-				end
-				
-				local max = #mf.ListIndex - mf.availablerows + 1
-				if max < 1 then
-					max = 1
-				end
-				mf.slider:SetMinMaxValues(1, max)
-				mf:Sort(mf.prevsortcol)
-			end
-			--]]
+		--scroll
+		function mf:Scroll()
+            self:LoadRows()
 		end
 
-		--a and b are indexes for ItemList
-		mf.sortkeeper = {
-			{asc = false, dosort = false},
-			{asc = false, dosort = false},
-			{asc = false, dosort = false},
-			--{asc = false, issorted = false}
-		}
-		function mf.lootcomparer(a, b)
-			if a== nil or b == nil then
-				return true
-			end
-			
-			if a < 1 or b < 1 then
-				return true
-			end
-			
-			--retrieving itemobj
-			local aobj = fRaid.Item.GetObjectByIndex(a)--fRaid.db.global.ItemList[a]
-			local bobj = fRaid.Item.GetObjectByIndex(b)--fRaid.db.global.ItemList[b]
-			
-			local SORT = 1
-			local SORT_ASC = false
-			for idx,keeper in ipairs(mf.sortkeeper) do
-				if keeper.dosort then
-					SORT = idx
-					SORT_ASC = keeper.asc
-				end
-			end
-			
-			local ret = true
-			if SORT == 3 then
-				if aobj.rarity == bobj.rarity then
-					SORT_ASC = mf.sortkeeper[1].asc
-					ret = aobj.name < bobj.name
-				else
-					ret = aobj.rarity < bobj.rarity
-				end
-			elseif SORT == 2 then
-				if aobj.mindkp == bobj.mindkp then
-					if aobj.name == bobj.name then
-						SORT_ASC = mf.sortkeeper[3].asc
-						ret = aobj.rarity < bobj.rarity
-					else
-						SORT_ASC = mf.sortkeeper[1].asc
-						ret = aobj.name < bobj.name
-					end
-				else
-					ret = aobj.mindkp > bobj.mindkp
-				end
-			else
-				if aobj.name == bobj.name then
-					SORT_ASC = mf.sortkeeper[3].asc
-					ret = aobj.rarity < bobj.rarity
-				else
-					ret = aobj.name < bobj.name
-				end
-				--[[
-				if aobj.rarity == bobj.rarity then
-					ret = aobj.name > bobj.name
-				else
-					SORT_ASC = mf.sortkeeper[3].asc
-					ret = aobj.rarity > bobj.rarity
-				end
-				--]]
-			end
-			
-			if SORT_ASC then
-				return ret
-			else
-				return not ret
-			end
-		end
-		
-		function mf:Sort(colnum)
-			mf.prevsortcol = colnum
-			mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
-			
-			if not mf.sortkeeper[colnum].issorted then
-				for idx,keeper in ipairs(mf.sortkeeper) do
-					keeper.dosort = false
-				end
-				mf.sortkeeper[colnum].dosort = true
-			end
-			
-			table.sort(fRaid.GUI2.ItemFrame.ListIndex, mf.lootcomparer)
-		end
 
-		function mf:LoadRows(startingindexnum)
-			if startingindexnum then
-				mf.startingrow = startingindexnum
+		function mf:LoadRows(startingindex)
+			--print('Loading rows...')
+			if startingindex then
+                self.table.startingindex = startingindex
 			end
 			
-			local itemnum, itemobj
-			local indexnum = mf.startingrow
+			self:RefreshIndex()
+			self:Sort()
+			
+			local name, data
+			local index = self.table.startingindex
 			
 			local searchmatch = false
 			local searchnum, searchname
-			searchnum = tonumber(mf.search)
-			searchname = strlower(mf.search)
+			searchnum = tonumber(self.search)
+			searchname = strlower(self.search)
 			
 			local selectedindexfound = false
+			local exactmatchindex = 0
+			local exactmatchrow = 0
 			
-			for i = 1, mf.availablerows do
+			for i = 1, self.table.rowcount do
 				--search
 				searchmatch = false
 				while not searchmatch do
-					itemnum, itemobj = mf:SelectedData(indexnum)
-					if mf.search == '' or not itemobj then
+					id, data = self:RetrieveData(index)
+					if self.search == '' or not data then
 						searchmatch = true
 					else
-						if itemobj.mindkp == searchnum or itemobj.rarity == searchnum or itemobj.id == searchnum then
+						if id == searchnum then
 							searchmatch = true
-						elseif strfind(strlower(itemobj.name), searchname, 1, true) then
+						elseif strfind(strlower(data.name), searchname, 1, true) then
 							searchmatch = true
+							if strlower(data.name) == strlower(searchname) then
+								exactmatchrow = i
+								exactmatchindex = index
+							end
 						else
-							indexnum = indexnum + 1
+							index = index + 1
 						end
 					end
 				end
+			
+				if not data then
+					for j = 1, self.table.colcount do
+						self.table.columns[j].cells[i]:SetText('')
+					end
 				
-				if not itemobj then
-					mf.columnframes[1].cells[i]:SetText('')
-					mf.columnframes[2].cells[i]:SetText('')
-					mf.columnframes[3].cells[i]:SetText('')
-					--mf.columnframes[4].cells[i]:SetText('')
-					
-					mf.rowbuttons[i]:Hide()
-					mf.rowbuttons[i].indexnum = 0
+					self.table.rowbuttons[i]:Hide()
+					self.table.rowbuttons[i].index = 0
 				else
-					--fill in the cells with stuff
-					--local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemobj.id)
-					mf.columnframes[1].cells[i]:SetText(itemobj.link)
-					mf.columnframes[2].cells[i]:SetText(itemobj.mindkp)
-					mf.columnframes[3].cells[i]:SetText(itemobj.rarity)
-					--mf.columnframes[4].cells[i]:SetText(itemobj.id)
+					--fill in cells with stuff
+					self.table.columns[1].cells[i]:SetText(data.name)
+					self.table.columns[2].cells[i]:SetText(data.mindkp)
+					self.table.columns[3].cells[i]:SetText(data.rarity)
+					self.table.columns[4].cells[i]:SetText(id)
+					self.table.columns[5].cells[i]:SetText('')
+					self.table.columns[6].cells[i]:SetText('')
+					--self.table.columns[7].cells[i]:SetText(index)
 					
 					--attach correct indexnum to rowbutton
-					mf.rowbuttons[i]:Show()
-					mf.rowbuttons[i].indexnum = indexnum
+					self.table.rowbuttons[i]:Show()
+					self.table.rowbuttons[i].index = index
 					
-					if indexnum == mf.selectedindexnum then
-						mf.rowbuttons[i].highlightspecial:Show()
+					if index == self.table.selectedindex then
+						self.table.rowbuttons[i].highlightspecial:Show()
 						selectedindexfound = true
 					else
-						mf.rowbuttons[i].highlightspecial:Hide()
+						self.table.rowbuttons[i].highlightspecial:Hide()
 					end
 				end
-				indexnum = indexnum + 1
+				index = index + 1
 			end
 			
-			if not selectedindexfound then
-				mf.selectedindexnum = 0
-				mf:RefreshDetails()
+			if exactmatchrow > 0 then
+				--print('exact match at ', exactmatchindex)
+				self.table.rowbuttons[exactmatchrow].highlightspecial:Show()
+				self.table.selectedindex = exactmatchindex
+				self:RefreshDetails()
+			elseif not selectedindexfound then
+				self.table.selectedindex = 0
+				self:RefreshDetails()
 			end
 		end
+
+		function mf:Refresh()
+			mf:LoadRows()
+		end
+
+		function mf:RefreshDetails()
+			local id, data = self:RetrieveData()
+			if id and data then
+				self.title_name:SetText(data.name)
+				self.title_dkp:SetText(data.mindkp)
+			else
+				self.title_name:SetText('')
+				self.title_dkp:SetText('')
+			end
+		end
+
+		mf.sortdirty = true
+		mf.sortkeeper = {
+		{asc = false, issorted = false, name = 'Name'},
+		{asc = false, issorted = false, name = 'Dkp'},
+		{asc = false, issorted = false, name = 'Rarity'},
+		{asc = false, issorted = false, name = 'Id'},
+		{asc = false, issorted = false, name = '---'},
+		{asc = false, issorted = false, name = '---'},
+		{asc = false, issorted = false, name = '---'}
+		}
+		function mf.lootcomparer(a, b) --a and b are ids (key for ItemList)
+			--retrieve data
+			local adata = fRaid.db.global.Item.ItemList[a]
+			local bdata = fRaid.db.global.Item.ItemList[b]
+			
+			--find the sorted column and how it is sorted
+			local SORT = mf.table.selectedcolnum
+			local SORT_ASC = mf.sortkeeper[SORT].asc
+			local SORT_NAME = mf.sortkeeper[SORT].name
+			
+			local ret = true
+	
+			if SORT_NAME == 'Dkp' then
+				if adata.mindkp == bdata.mindkp then
+					ret = adata.name > bdata.name
+				else
+					ret = adata.mindkp < bdata.mindkp
+				end
+			else
+				ret = a > b
+			end
+	
+			if SORT_ASC then
+				return not ret
+			else
+				return ret
+			end
+		end
+	
+		function mf:Sort(colnum)
+			if colnum then
+				mf.table.selectedcolnum = colnum
+				mf.sortdirty = true
+			end
+	
+			if mf.sortdirty then
+				colnum = mf.table.selectedcolnum
+				if mf.sortkeeper[colnum].issorted then
+					--toggle ascending / descending sort
+					mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
+				else
+					mf.sortkeeper[colnum].asc = true
+					for idx,keeper in ipairs(mf.sortkeeper) do
+						keeper.issorted = false
+					end
+					mf.sortkeeper[colnum].issorted = true
+				end
+				table.sort(mf.index_to_id, mf.lootcomparer)
+			end
+			
+			mf.sortdirty = false
+		end
+	
+		local function np(name)
+			fRaid.Player.AddDkp(name, 0, 'new player')
+			
+			mf.eb_search:SetText()
+			mf.eb_search.newbutton:Hide()
+			mf.sortdirty = true
+	
+			mf:Refresh()
+		end
+		function mf:NewPlayer(name)
+			if not name or name == '' then
+				name = self.eb_search:GetText()
+			end
+			fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', np, name)
+		end
+	
+		mf.table:AddHeaderClickAction(mf.ClickHeader, mf)
+		mf.table:AddRowClickAction(mf.ClickRow, mf)
+		mf.table:AddScrollAction(mf.Scroll, mf)
+	
+		--fill in headers
+		local i = 1
+		mf.table.columns[i].headerbutton:SetText('Name')
+		mf.table.columns[i]:SetWidth(100)
+		i = i + 1
+		mf.table.columns[i].headerbutton:SetText('Dkp')
+		mf.table.columns[i]:SetWidth(50)
+		i = i + 1
+		mf.table.columns[i].headerbutton:SetText('Rarity')
+		mf.table.columns[i]:SetWidth(50)
+		i = i + 1
+		mf.table.columns[i].headerbutton:SetText('Id')
+		mf.table.columns[i]:SetWidth(75)
+		i = i + 1
+		mf.table.columns[i].headerbutton:SetText('Att')
+		mf.table.columns[i]:SetWidth(50)
+		i = i + 1
+		mf.table.columns[i].headerbutton:SetText('Prog')
+		mf.table.columns[i]:SetWidth(50)
+		i = i + 1
+		--mf.table.columns[i].headerbutton:SetText('Id')
+		--mf.table.columns[i]:SetWidth(50)
 		
-		mf.viewedonce = true
+		--separator
+		ui = fLibGUI.CreateSeparator(mf)
+		ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5,-6 - mf.table.height)
+		ui:SetWidth(mf.table.width)
+		prevui = ui
+		
+		--Search/Name box
+		ui = fLibGUI.CreateEditBox(mf, 'Name')
+		mf.eb_search = ui
+		mf.search = ''
+		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
+		ui:SetWidth(mf.table.width)
+		ui:SetScript('OnEnterPressed', function()
+		    this:ClearFocus()
+		    if mf.table.selectedindex == 0 then
+		    	mf:NewPlayer()
+		    end
+	    end)
+    	ui:SetScript('OnTextChanged', function()
+	        --print('text changed')
+	        if this:GetText() ~= mf.search then
+		        mf.table.selectedindex = 0
+		        mf:RefreshDetails()
+		        mf.search = this:GetText()
+		        mf:LoadRows()
+		        if mf.table.selectedindex == 0 and mf.search ~= '' then
+			        this.newbutton:Show()
+			    else
+			    	this.newbutton:Hide()
+		    	end
+	    	end
+	    end)
+	    prevui = ui
+	    
+	    ui = fLibGUI.CreateActionButton(mf)
+	    mf.eb_search.newbutton = ui
+	    ui:SetText('New')
+	    ui:SetFrameLevel(4)
+	    ui:SetWidth(ui:GetTextWidth())
+	    ui:SetHeight(ui:GetTextHeight())
+	    ui:SetScript('OnClick', function() mf:NewPlayer() end)
+	    ui:SetPoint('RIGHT', mf.eb_search, 'RIGHT', -4, 0)
+	    ui:Hide()
+    
+    
+	    --Player Details
+	    ui = fLibGUI.CreateLabel(mf)
+	    ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
+	    ui:SetText('Name: ')
+	    prevui = ui
+	    
+	    mf.title_name = fLibGUI.CreateLabel(mf)
+	    mf.title_name:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+	    mf.title_name:SetText('')
+	    
+	    ui = fLibGUI.CreateLabel(mf)
+	    ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
+	    ui:SetText('Dkp:')
+	    prevui = ui
+	    
+	    mf.title_dkp = fLibGUI.CreateLabel(mf)
+	    mf.title_dkp:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+	    mf.title_dkp:SetText('')
+	    
+	    ui = fLibGUI.CreateLabel(mf)
+	    ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
+	    ui:SetText('Role:')
+	    prevui = ui
+	    
+	    mf.eb_role = fLibGUI.CreateEditBox2(mf, '#')
+	    mf.eb_role:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+	    mf.eb_role:SetText('')
+    	mf.eb_role:SetScript('OnEnterPressed', function() 
+	        local itemnum, itemobj = mf:SelectedData()
+	        if itemobj then
+	        	itemobj.role = this:GetText()
+	        end
+	        
+	        this:ClearFocus()
+	        this:SetText(itemobj.role)
+	        
+	        --refresh row (just going to refresh entire table)
+	        mf:Refresh()
+        end)
+        
+        --separator
+        ui = fLibGUI.CreateSeparator(mf)
+        ui:SetWidth(1)
+        ui:SetHeight(mf:GetHeight() - mf.table.height - 15)
+        ui:SetPoint('TOP', mf.eb_search, 'BOTTOM', -30,-1)
+        prevui = ui
+        
+        ui = fLibGUI.CreateLabel(mf)
+        ui:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, -5)
+        ui:SetText('Add dkp:')
+        prevui = ui
+        
+        mf.eb_dkpchange = fLibGUI.CreateEditBox3(mf, 'amount')
+        mf.eb_dkpchange:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
+        mf.eb_dkpchange:SetWidth(100)
+        mf.eb_dkpchange.prevtext = ''
+        
+        mf.eb_dkpnote = fLibGUI.CreateEditBox3(mf, 'note')
+        mf.eb_dkpnote:SetPoint('TOPLEFT', mf.eb_dkpchange, 'BOTTOMLEFT', 0, -5)
+        mf.eb_dkpnote:SetWidth(100)
+        
+        mf.eb_dkpchange:SetScript('OnEscapePressed', function()
+            local num = tonumber(this:GetText())
+            if not num then
+            	this:SetText(0)
+	        else
+	        	this:SetText(num)
+	        end
+        	this:ClearFocus()
+        end)
+        mf.eb_dkpchange:SetScript('OnEnterPressed', function()
+            local num = tonumber(this:GetText())
+            if not num then
+	            this:SetText(0)
+	        else
+		        this:SetText(num)
+	        end
+	        mf.eb_dkpnote:SetFocus()
+	        mf.eb_dkpnote:HighlightText()
+        end)
+        mf.eb_dkpnote:SetScript('OnEscapePressed', function()
+            this:ClearFocus()
+        end)
+        mf.eb_dkpnote:SetScript('OnEnterPressed', function()
+			local name, playerobj = mf:RetrieveData()
+			if playerobj then
+				local amount = tonumber(mf.eb_dkpchange:GetText())
+				if amount then
+					--playerobj.dkp = playerobj.dkp + newdkp
+					--TODO: note
+					fRaid.Player.AddDkp(name, amount, mf.eb_dkpnote:GetText())
+					mf.eb_dkpchange:SetText('')
+					this:SetText('')
+				    this:ClearFocus()
+				    mf.sortdirty = true
+				    mf:Refresh()
+				else
+					mf.eb_dkpchange:SetFocus()
+					mf.eb_dkpchange:HighlightText()
+				end
+			end
+		end)
+	
+            
+        mf.viewedonce = true
 	end
 
 	mf:Refresh()

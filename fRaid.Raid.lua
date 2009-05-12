@@ -48,6 +48,7 @@ function fRaid.Raid.Start()
         fRaid.db.global.Raid.CurrentRaid.IsProgression = false
         
         fRaid.db.global.Raid.CurrentRaid.RaiderList = {}
+        fRaid.db.global.Raid.CurrentRaid.ListedPlayers = {}
         fRaid.Raid.TrackRaiders()
         
         fRaid:Print('Raid tracking started.')
@@ -129,6 +130,10 @@ function fRaid.Raid.TrackRaiders()
     end
     
     fRaid.db.global.Raid.CurrentRaid.RaiderList = newraiderlist
+    
+    --TODO: fill in listed players
+    --check to see if the listed player was in the raider list
+    --if they weren't, then keep t hem in listed players
 end
 
 --should only be called by the scheduled timer
@@ -151,6 +156,92 @@ end
 function fRaid.Raid.CalculatePlayerAttendance(name)
 
 end
+
+------------------------------
+--Raid Simulation Functions---
+
+function fRaid.Raid.CreateRaid(starttime, owner)
+	print('creating raid...')
+	local raid = {}
+	raid.StartTime = starttime
+	raid.Owner = owner
+	
+	raid.IsProgression = false
+	
+	raid.RaiderList = {}
+	raid.ListedPlayers = {}
+	
+	return raid
+end
+
+function fRaid.Raid.SaveRaid(raid, endtime, owner)
+	print('saving raid...')
+	--stop tracking
+	raid.EndTime = endtime
+	
+	--archive CurrentRaid
+	if not fRaid.db.global.Raid.RaidList[owner] then
+		fRaid.db.global.Raid.RaidList[owner] = {}
+	end
+	tinsert(fRaid.db.global.Raid.RaidList[owner], raid)
+	fRaid.db.global.Raid.LastModified = fLib.GetTimestamp()
+end
+
+function fRaid.Raid.SetRaiders(raid, time, raiderlist, listedlist)
+	print('setting raiders...')
+	local name, raiderobj, timestampobj
+	local newraiderlist = {}
+	
+	for idx,name in ipairs(raiderlist) do
+		print(idx,name)
+		raiderobj = raid.RaiderList[name]
+		if not raiderobj then
+			raiderobj = {
+				guild = '', --maybe they aren't in our guild
+				rank = '', --maybe their rank changes over time? so should remember what it was
+				timestamplist = {
+					{starttime = time}
+				}
+			}
+		end
+		
+		--update timestamp if they are rejoining raid
+		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
+		if timestampobj.endtime then
+			--create a new timestampobj
+				timestampobj = {
+				starttime = time
+			}
+			tinsert(raiderobj.timestamplist, timestampobj)
+		end
+		
+		newraiderlist[name] = raiderobj --add to new list
+		raid.RaiderList[name] = nil --remove from old list
+	end
+	
+	--track players that left
+	for name, raiderobj in pairs(raid.RaiderList) do
+		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
+		if not timestampobj.endtime then
+			timestampobj.endtime = time
+		end
+	
+		newraiderlist[name] = raiderobj
+		raid.RaiderList[name] = nil
+	end
+	
+	raid.RaiderList = newraiderlist
+	
+	--TODO: fill in listed players
+	--check to see if the listed player was in the raider list
+	--if they weren't, then keep t hem in listed players
+end
+
+
+
+
+--------------------------------------
+--------------------------------------
 
 function fRaid.Raid.MergeRaidLists(l1, l2)
     --merge raidlists...

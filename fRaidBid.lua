@@ -706,7 +706,7 @@ function fRaidBid.CreateGUI()
 		
 		local items = BIDLIST.GetList()
 		local iteminfo = items[mw_items.selecteditemindex]
-		local obj, id = fRaid.Item.GetObjectById(iteminfo.id)
+		local obj = fRaid.Item.GetObjectById(iteminfo.id)
 		if obj then
 			obj.mindkp = this:GetNumber()
 		end
@@ -994,9 +994,9 @@ function fRaidBid.CreateGUI()
 			
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
-			local obj, idx = fRaid.Item.GetObjectById(iteminfo.id, true)
+			local obj = fRaid.Item.GetObjectById(iteminfo.id, true)
 			if obj then
-				mw.title_id:SetText(obj.id)
+				mw.title_id:SetText(iteminfo.id)
 				mw.eb_mindkp:SetNumber(obj.mindkp)
 			end
 			

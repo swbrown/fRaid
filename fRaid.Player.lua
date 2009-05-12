@@ -374,6 +374,26 @@ function fRaid.Player.AddDkpToRaid(amount, includelistedplayers)
     end
 end
 
+--mainlist and halflist should be a list of names
+function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
+	if not amount then
+		fRaid:Print('ERROR: missing arg1 amount')
+		return
+	end
+	if type(amount) ~= 'number' then
+		fRaid:Print("ERROR: bad type arg1 needs to be a number")
+		return
+	end
+
+	for idx,name in ipairs(mainlist) do
+		fRaid.Player.AddDkp(name, amount, note)
+	end
+	
+	for idx,name in ipairs(halflist) do
+		fRaid.Player.AddDkp(name, amount/2, note)
+	end
+end
+
 --cmd is a player name or TODO: one of the keywords
 local keywords = {
     priest = true,
@@ -459,6 +479,7 @@ function fRaid.Player.View()
 
         --click on a header
         function mf:ClickHeader()
+        	mf.sortdirty = true
             self:Sort()
             self:LoadRows()
         end
@@ -585,9 +606,7 @@ function fRaid.Player.View()
         }
         function mf.lootcomparer(a, b) --a and b are names (key for PlayerList)
             --retrieve data
-            --local aname, adata = mf:RetrieveData(a)
             local adata = fRaid.db.global.Player.PlayerList[a]
-            --local bname, bdata = mf:RetrieveData(b)
             local bdata = fRaid.db.global.Player.PlayerList[b]
             
             --find the sorted column and how it is sorted
@@ -634,6 +653,8 @@ function fRaid.Player.View()
 	            end
 	            table.sort(mf.index_to_name, mf.lootcomparer)
 	        end
+	        
+	        mf.sortdirty = false
         end
         
         local function np(name)
@@ -829,7 +850,6 @@ function fRaid.Player.View()
 
             
         mf.viewedonce = true
-        
     end
 
     mf:Refresh()
