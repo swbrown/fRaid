@@ -82,11 +82,10 @@ function fRaid.Item.View()
 	local mf = fRaid.GUI2.ItemFrame
 	
 	if not mf.viewedonce then
-		print('generating fRaid.GUI2.ItemFrame')
 		--create index table
 		mf.index_to_id = {}
 		mf.lastmodified = 0--fRaid.db.global.Item.LastModified
-        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 6)
+        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 4)
         
         function mf:RetrieveData(index)
             if not index or index < 1 then
@@ -192,9 +191,6 @@ function fRaid.Item.View()
 					self.table.columns[2].cells[i]:SetText(data.mindkp)
 					self.table.columns[3].cells[i]:SetText(data.rarity)
 					self.table.columns[4].cells[i]:SetText(id)
-					self.table.columns[5].cells[i]:SetText('')
-					self.table.columns[6].cells[i]:SetText('')
-					--self.table.columns[7].cells[i]:SetText(index)
 					
 					--attach correct indexnum to rowbutton
 					self.table.rowbuttons[i]:Show()
@@ -228,7 +224,7 @@ function fRaid.Item.View()
 		function mf:RefreshDetails()
 			local id, data = self:RetrieveData()
 			if id and data then
-				self.title_name:SetText(data.name)
+				self.title_name:SetText(id)
 				self.title_dkp:SetText(data.mindkp)
 			else
 				self.title_name:SetText('')
@@ -238,13 +234,10 @@ function fRaid.Item.View()
 
 		mf.sortdirty = true
 		mf.sortkeeper = {
-		{asc = false, issorted = false, name = 'Name'},
-		{asc = false, issorted = false, name = 'Dkp'},
-		{asc = false, issorted = false, name = 'Rarity'},
-		{asc = false, issorted = false, name = 'Id'},
-		{asc = false, issorted = false, name = '---'},
-		{asc = false, issorted = false, name = '---'},
-		{asc = false, issorted = false, name = '---'}
+			{asc = false, issorted = false, name = 'Name'},
+			{asc = false, issorted = false, name = 'Dkp'},
+			{asc = false, issorted = false, name = 'Rarity'},
+			{asc = false, issorted = false, name = 'Id'},
 		}
 		function mf.lootcomparer(a, b) --a and b are ids (key for ItemList)
 			--retrieve data
@@ -257,15 +250,22 @@ function fRaid.Item.View()
 			local SORT_NAME = mf.sortkeeper[SORT].name
 			
 			local ret = true
-	
-			if SORT_NAME == 'Dkp' then
+			if SORT_NAME == 'Id' then
+				ret = a > b
+			elseif SORT_NAME == 'Rarity' then
+				if adata.rarity == bdata.rarity then
+					ret = adata.name > bdata.name
+				else
+					ret = adata.rarity < bdata.rarity
+				end
+			elseif SORT_NAME == 'Dkp' then
 				if adata.mindkp == bdata.mindkp then
 					ret = adata.name > bdata.name
 				else
 					ret = adata.mindkp < bdata.mindkp
 				end
 			else
-				ret = a > b
+				ret = adata.name > bdata.name
 			end
 	
 			if SORT_ASC then
@@ -300,6 +300,7 @@ function fRaid.Item.View()
 		end
 	
 		local function np(name)
+		--[[
 			fRaid.Player.AddDkp(name, 0, 'new player')
 			
 			mf.eb_search:SetText()
@@ -307,12 +308,16 @@ function fRaid.Item.View()
 			mf.sortdirty = true
 	
 			mf:Refresh()
+			--]]
 		end
 		function mf:NewPlayer(name)
+		fRaid:ConfirmDialog2('Not yet implemented', np, name)
+		--[[
 			if not name or name == '' then
 				name = self.eb_search:GetText()
 			end
 			fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', np, name)
+			--]]
 		end
 	
 		mf.table:AddHeaderClickAction(mf.ClickHeader, mf)
@@ -322,25 +327,17 @@ function fRaid.Item.View()
 		--fill in headers
 		local i = 1
 		mf.table.columns[i].headerbutton:SetText('Name')
-		mf.table.columns[i]:SetWidth(100)
+		mf.table.columns[i]:SetWidth(220)
 		i = i + 1
 		mf.table.columns[i].headerbutton:SetText('Dkp')
 		mf.table.columns[i]:SetWidth(50)
 		i = i + 1
 		mf.table.columns[i].headerbutton:SetText('Rarity')
-		mf.table.columns[i]:SetWidth(50)
+		mf.table.columns[i]:SetWidth(40)
 		i = i + 1
 		mf.table.columns[i].headerbutton:SetText('Id')
 		mf.table.columns[i]:SetWidth(75)
 		i = i + 1
-		mf.table.columns[i].headerbutton:SetText('Att')
-		mf.table.columns[i]:SetWidth(50)
-		i = i + 1
-		mf.table.columns[i].headerbutton:SetText('Prog')
-		mf.table.columns[i]:SetWidth(50)
-		i = i + 1
-		--mf.table.columns[i].headerbutton:SetText('Id')
-		--mf.table.columns[i]:SetWidth(50)
 		
 		--separator
 		ui = fLibGUI.CreateSeparator(mf)
@@ -387,10 +384,10 @@ function fRaid.Item.View()
 	    ui:Hide()
     
     
-	    --Player Details
+	    --Item Details
 	    ui = fLibGUI.CreateLabel(mf)
 	    ui:SetPoint('TOPLEFT', mf.eb_search, 'BOTTOMLEFT', 0, -5)
-	    ui:SetText('Name: ')
+	    ui:SetText('Id: ')
 	    prevui = ui
 	    
 	    mf.title_name = fLibGUI.CreateLabel(mf)
@@ -405,91 +402,6 @@ function fRaid.Item.View()
 	    mf.title_dkp = fLibGUI.CreateLabel(mf)
 	    mf.title_dkp:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
 	    mf.title_dkp:SetText('')
-	    
-	    ui = fLibGUI.CreateLabel(mf)
-	    ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
-	    ui:SetText('Role:')
-	    prevui = ui
-	    
-	    mf.eb_role = fLibGUI.CreateEditBox2(mf, '#')
-	    mf.eb_role:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
-	    mf.eb_role:SetText('')
-    	mf.eb_role:SetScript('OnEnterPressed', function() 
-	        local itemnum, itemobj = mf:SelectedData()
-	        if itemobj then
-	        	itemobj.role = this:GetText()
-	        end
-	        
-	        this:ClearFocus()
-	        this:SetText(itemobj.role)
-	        
-	        --refresh row (just going to refresh entire table)
-	        mf:Refresh()
-        end)
-        
-        --separator
-        ui = fLibGUI.CreateSeparator(mf)
-        ui:SetWidth(1)
-        ui:SetHeight(mf:GetHeight() - mf.table.height - 15)
-        ui:SetPoint('TOP', mf.eb_search, 'BOTTOM', -30,-1)
-        prevui = ui
-        
-        ui = fLibGUI.CreateLabel(mf)
-        ui:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, -5)
-        ui:SetText('Add dkp:')
-        prevui = ui
-        
-        mf.eb_dkpchange = fLibGUI.CreateEditBox3(mf, 'amount')
-        mf.eb_dkpchange:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
-        mf.eb_dkpchange:SetWidth(100)
-        mf.eb_dkpchange.prevtext = ''
-        
-        mf.eb_dkpnote = fLibGUI.CreateEditBox3(mf, 'note')
-        mf.eb_dkpnote:SetPoint('TOPLEFT', mf.eb_dkpchange, 'BOTTOMLEFT', 0, -5)
-        mf.eb_dkpnote:SetWidth(100)
-        
-        mf.eb_dkpchange:SetScript('OnEscapePressed', function()
-            local num = tonumber(this:GetText())
-            if not num then
-            	this:SetText(0)
-	        else
-	        	this:SetText(num)
-	        end
-        	this:ClearFocus()
-        end)
-        mf.eb_dkpchange:SetScript('OnEnterPressed', function()
-            local num = tonumber(this:GetText())
-            if not num then
-	            this:SetText(0)
-	        else
-		        this:SetText(num)
-	        end
-	        mf.eb_dkpnote:SetFocus()
-	        mf.eb_dkpnote:HighlightText()
-        end)
-        mf.eb_dkpnote:SetScript('OnEscapePressed', function()
-            this:ClearFocus()
-        end)
-        mf.eb_dkpnote:SetScript('OnEnterPressed', function()
-			local name, playerobj = mf:RetrieveData()
-			if playerobj then
-				local amount = tonumber(mf.eb_dkpchange:GetText())
-				if amount then
-					--playerobj.dkp = playerobj.dkp + newdkp
-					--TODO: note
-					fRaid.Player.AddDkp(name, amount, mf.eb_dkpnote:GetText())
-					mf.eb_dkpchange:SetText('')
-					this:SetText('')
-				    this:ClearFocus()
-				    mf.sortdirty = true
-				    mf:Refresh()
-				else
-					mf.eb_dkpchange:SetFocus()
-					mf.eb_dkpchange:HighlightText()
-				end
-			end
-		end)
-	
             
         mf.viewedonce = true
 	end
