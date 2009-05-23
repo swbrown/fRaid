@@ -11,8 +11,15 @@ fRaid.Raid = {}
 fRaid.Raid.IsInRaid = false
 local MYGUILD = GetGuildInfo('player')
 
+function fRaid.Raid.IsTracking()
+	if fRaid.db.global.Raid.CurrentRaid then
+		return true
+	end
+	return false
+end
+
 function fRaid.Raid.RAID_ROSTER_UPDATE()
-    if fRaid.db.global.Raid.CurrentRaid then --currently tracking a raid
+    if fRaid.Raid.IsTracking then --currently tracking a raid
         if UnitInRaid('player') then
             --update attendance
             fRaid.Raid.TrackRaiders()
@@ -36,7 +43,7 @@ function fRaid.Raid.RAID_ROSTER_UPDATE()
 end
 
 function fRaid.Raid.Start()
-    if fRaid.db.global.Raid.CurrentRaid then
+    if fRaid.Raid.IsTracking() then
         fRaid:Print('You are already tracking a raid.')
     else
         --start tracking
@@ -56,20 +63,27 @@ function fRaid.Raid.Start()
 end
 
 function fRaid.Raid.Stop()
-    --stop tracking
-    fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
-	fRaid.Raid.StopProgressionDkpTimer()
-
-    --archive CurrentRaid
-    if not fRaid.db.global.Raid.RaidList[UnitName('player')] then
-        fRaid.db.global.Raid.RaidList[UnitName('player')] = {}
-    end
-    tinsert(fRaid.db.global.Raid.RaidList[UnitName('player')], fRaid.db.global.Raid.CurrentRaid)
-    fRaid.db.global.Raid.LastModified = fLib.GetTimestamp()
-    
-    fRaid.db.global.Raid.CurrentRaid = nil
-    
-    fRaid:Print('Raid tracking stopped.')
+	if fRaid.Raid.IsTracking() then
+	    --stop tracking
+	    fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
+		fRaid.Raid.StopProgressionDkpTimer()
+		
+		--save listed players
+		
+		
+	    --archive CurrentRaid
+	    if not fRaid.db.global.Raid.RaidList[UnitName('player')] then
+	        fRaid.db.global.Raid.RaidList[UnitName('player')] = {}
+	    end
+	    tinsert(fRaid.db.global.Raid.RaidList[UnitName('player')], fRaid.db.global.Raid.CurrentRaid)
+	    fRaid.db.global.Raid.LastModified = fLib.GetTimestamp()
+	    
+	    fRaid.db.global.Raid.CurrentRaid = nil
+	    
+	    fRaid:Print('Raid tracking stopped.')
+	else
+		fRaid:Print('No raid is being tracked.')
+	end
 end
 
 
@@ -138,7 +152,7 @@ end
 
 --should only be called by the scheduled timer
 function fRaid.Raid.AwardProgressionDkp()
-	if fRaid.db.global.Raid.CurrentRaid and fRaid.db.global.Raid.IsAwardProgressionTimerOn then
+	if fRaid.Raid.IsTracking() and fRaid.db.global.Raid.IsAwardProgressionTimerOn then
 		fRaid.Player.AddDkpToRaid(5, true)
 	end
 end
