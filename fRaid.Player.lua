@@ -136,6 +136,35 @@ function LIST.SetDkp(name, dkp, note)
     end
 end
 
+function LIST.Blacklist(name, reason)
+	--make sure name is formatted correctly
+	name = fRaid:Capitalize(strlower(strtrim(name)))
+	
+	local obj = fRaid.db.global.Player.PlayerList[name]
+	if obj then
+		obj.blacklisted = true
+		fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
+		
+        --audit
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'blacklisted', reason, fRaid.db.global.Player.LastModified})
+	end
+end
+
+function LIST.UnBlacklist(name)
+	--make sure name is formatted correctly
+	name = fRaid:Capitalize(strlower(strtrim(name)))
+	
+	local obj = fRaid.db.global.Player.PlayerList[name]
+	if obj then
+		obj.blacklisted = nil
+		fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
+		
+		--audit
+		tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'unblacklisted', '', fRaid.db.global.Player.LastModified})
+	end
+end
+
+
 --recalculates all player's dkp based on all the events logged in the ChangeList
 function LIST.RecalculateDkp()
     local newList = {}
@@ -310,9 +339,17 @@ function fRaid.Player.AddDkp(name, amount, note)
         fRaid:Print("ERROR: bad type arg2 needs to be a number")
         return
     end
+    
+    --retrive a player info
+    local objcopy = LIST.GetPlayer(name, true)
+
+    --check if blacklisted
+    if objcopy.blacklisted then
+    	fRaid:Print('ERROR: ' .. name .. ' is blacklisted.')
+    	return
+    end
 
     --calculate new amount
-    local objcopy = LIST.GetPlayer(name, true)
     local newamount = objcopy.dkp + amount
     
     --dkp cap
@@ -657,20 +694,20 @@ function fRaid.Player.View()
 	        mf.sortdirty = false
         end
         
-        local function np(name)
+        local function np(self, name)
             fRaid.Player.AddDkp(name, 0, 'new player')
 
-            mf.eb_search:SetText()
-            mf.eb_search.newbutton:Hide()
-            mf.sortdirty = true
+            self.eb_search:SetText()
+            self.eb_search.newbutton:Hide()
+            self.sortdirty = true
             
-            mf:Refresh()
+            self:Refresh()
         end
         function mf:NewPlayer(name)
             if not name or name == '' then
                 name = self.eb_search:GetText()
             end
-            fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', np, name)
+            fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', np, self, name)
         end
         
         mf.table:AddHeaderClickAction(mf.ClickHeader, mf)

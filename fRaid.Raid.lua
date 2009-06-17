@@ -375,12 +375,12 @@ function fRaid.Raid.View()
     	--Start/Stop Tracking
     	--fRaid.Raid.StartProgressionDkpTimer()
     	ui = fLibGUI.CreateActionButton(mf)
-    	--mw.MenuFrame.buttons[i]:SetFrameLevel(3)
-    	--mw.MenuFrame.buttons[i].highlightspecial = mw.MenuFrame.buttons[i]:CreateTexture(nil, "BACKGROUND")
-    	--mw.MenuFrame.buttons[i].highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
-    	--mw.MenuFrame.buttons[i].highlightspecial:SetBlendMode("ADD")
-    	--mw.MenuFrame.buttons[i].highlightspecial:SetAllPoints(mw.MenuFrame.buttons[i])
-    	--mw.MenuFrame.buttons[i].highlightspecial:Hide()
+    	ui:SetFrameLevel(3)
+    	ui.highlightspecial = ui:CreateTexture(nil, "BACKGROUND")
+    	ui.highlightspecial:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+    	ui.highlightspecial:SetBlendMode("ADD")
+    	ui.highlightspecial:SetAllPoints(ui)
+    	ui.highlightspecial:Hide()
     	ui:SetText('Start/Stop Progression Dkp Timer')
     	ui:SetWidth(ui:GetTextWidth())
     	ui:SetHeight(ui:GetTextHeight())
@@ -388,8 +388,10 @@ function fRaid.Raid.View()
     		if fRaid.db.global.Raid.CurrentRaid then
     			if not fRaid.db.global.Raid.IsAwardProgressionTimerOn then
     				fRaid.Raid.StartProgressionDkpTimer()
+    				this.highlightspecial:Show()
     			else
     				fRaid.Raid.StopProgressionDkpTimer()
+    				this.highlightspecial:Hide()
     			end
     		else
     			fRaid:Print('Raid tracking is not on.')

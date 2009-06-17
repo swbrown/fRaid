@@ -12,3 +12,4 @@ fRaid.Boss.lua
 fRaid.Item.lua
 fRaid.Player.lua
 fRaid.Raid.lua
+fRaid.Raid.raidobj.lua
