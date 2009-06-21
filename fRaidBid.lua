@@ -352,6 +352,14 @@ function addon.Scan()
 	end
 end
 
+function addon.Search(searchstr)
+	for idx,data in ipairs(fRaid.db.global.fRaidBid.winnerlist) do
+		if strfind(data.link, searchstr) then
+			fRaid:Print(data.link)
+		end
+	end
+end
+
 function addon.AddBid(playername, number, cmd)
 	if not playername then
 		fRaid:Whisper(playername,'Invalid bid: missing playername')

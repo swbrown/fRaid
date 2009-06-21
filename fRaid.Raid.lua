@@ -19,7 +19,7 @@ function fRaid.Raid.IsTracking()
 end
 
 function fRaid.Raid.RAID_ROSTER_UPDATE()
-    if fRaid.Raid.IsTracking then --currently tracking a raid
+    if fRaid.Raid.IsTracking() then --currently tracking a raid
         if UnitInRaid('player') then
             --update attendance
             fRaid.Raid.TrackRaiders()

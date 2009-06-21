@@ -3,20 +3,25 @@
 
 fRaid.Raid.raidobj = {}
 
-function fRaid.Raid.raidobj.new()
+function fRaid.Raid.raidobj.new(starttime)
 	local ro = {}
 	ro.Data = {}
 	
-	ro.Data.StartTime = fLib.GetTimestamp()
-	ro.Data.Owner = UnitName('player')
+	if starttime then
+		ro.Data.StartTime = starttime
+	else
+		ro.Data.StartTime = fLib.GetTimestamp()
+	end
 	
+	ro.Data.Owner = UnitName('player')
 	ro.Data.IsProgression = false
 	
 	ro.Data.RaiderList = {}
 	ro.Data.ListedPlayers = {}
+	ro.Data.BossList = {}
 	
 	local funcs = {
-		'AwardDkp', fRaid.Raid.raidobj.AwardDkp
+		AwardDkp = fRaid.Raid.raidobj.AwardDkp,
 	}
 	
 	for funcn,funcp in pairs(funcs) do
@@ -33,10 +38,19 @@ function fRaid.Raid.raidobj.load(data)
 end
 
 function fRaid.Raid.raidobj.AwardDkp(self, amount, timestamp)
+	local present = false
 	for name,data in pairs(self.Data.RaiderList) do
+		present = false
 		--check if they were in the raid duringn timestamp
-		print(name)
+		for idx,timeslot in ipairs(data.timestamplist) do
+			if timestamp >= timeslot.starttime and timestamp <= timeslot.endtime then
+				present = true
+			end
+		end
+		
 		--award them amount dkp
-		print(data)
+		if present then
+			fRaid.Player.AddDkp(name, amount, timestamp)
+		end
 	end
 end
