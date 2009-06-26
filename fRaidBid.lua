@@ -82,7 +82,7 @@ function BIDLIST.AddItem(data)
 	local itemlink, itemid
 	local matched
 	if type(data) == 'string' then
-		itemlink = data
+		itemlink = strtrim(data)
 		data = {itemlink}
 	end
 	
