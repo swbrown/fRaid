@@ -389,6 +389,8 @@ function fRaid.Raid.View()
     			fRaid.Raid.Stop()
     			this.highlightspecial:Hide()
     			this:SetText('Start Raid Tracking')
+    			mf.ButtonProgression.highlightspecial:Hide()
+    			mf.ButtonProgression:SetText('Stop Progression Dkp Timer')
     		else
     			fRaid.Raid.Start()
     			this.highlightspecial:Show()

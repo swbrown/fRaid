@@ -15,6 +15,7 @@
 --for reference
 --fRaid.db.global.Player.PlayerList {name => {dkp, attendance}
 --fRaid.db.global.Player.ChangeList {myname => {idx => {name, action, note, timestamp, oldvalue, newvalue}}}
+--  possible actions: new, delete, dkp, blacklisted, unblacklisted
 --fRaid.db.global.Player.Count
 --fRaid.db.global.Player.LastModified
 --fRaid.GUI2.PlayerFrame
@@ -321,6 +322,10 @@ function fRaid.Player.MergeChangeLists(l1, l2)
     end
 end
 
+function fRaid.Player.CollapseChangeLists()
+
+end
+
 --===========================================================================================
 
 --Add dkp to a player
@@ -469,6 +474,16 @@ function fRaid.Player.WhisperDkp(cmd, whispertarget)
     else
         fRaid:Whisper(whispertarget, msg)
     end
+end
+
+function fRaid.Player.Find(name)
+	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
+		for idx, change in ipairs(changelist) do
+			if change[1] == name then
+				fRaid:Print(change[2], change[3], change[4], change[5])
+			end
+		end
+	end
 end
 
 --==================================================================================================
@@ -697,7 +712,7 @@ function fRaid.Player.View()
         local function np(self, name)
             fRaid.Player.AddDkp(name, 0, 'new player')
 
-            self.eb_search:SetText()
+            self.eb_search:SetText('')
             self.eb_search.newbutton:Hide()
             self.sortdirty = true
             
