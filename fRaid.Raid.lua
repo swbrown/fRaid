@@ -68,8 +68,13 @@ function fRaid.Raid.Stop()
 	    fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
 		fRaid.Raid.StopProgressionDkpTimer()
 		
-		--save listed players
-		
+		--save listed players who haven't been in the raid already
+		local tempp = fList.GetPlayers()
+		for idx, name in ipairs(tempp) do
+			if not fRaid.db.global.Raid.CurrentRaid.RaiderList[name] then
+				tinsert(fRaid.db.global.Raid.CurrentRaid.ListedPlayers, name)
+			end
+		end
 		
 	    --archive CurrentRaid
 	    if not fRaid.db.global.Raid.RaidList[UnitName('player')] then
@@ -81,6 +86,9 @@ function fRaid.Raid.Stop()
 	    fRaid.db.global.Raid.CurrentRaid = nil
 	    
 	    fRaid:Print('Raid tracking stopped.')
+	    
+	    --update attendance last 30 days
+	    fRaid.Player.UpdateAttendance(31)
 	else
 		fRaid:Print('No raid is being tracked.')
 	end

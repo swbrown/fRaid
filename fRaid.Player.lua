@@ -37,13 +37,19 @@ function fRaid.Player.Scan(name)
 end
 
 --===================================================================================
+local rank1 = 'Raider'
+local rank2 = 'Member'
+
 --private functions used by LIST functions
 local function createplayerobj()
     local obj = {
 	    dkp = 0,
 	    attendance = 0,
 	    class = '',
-	    role = '', --dps, heal, tank?                    
+	    role = '', --dps, heal, tank?
+	    attrank1 = '',
+	    attrank2 = '',
+	    pretendrank = '',
     }
     
     return obj
@@ -94,8 +100,10 @@ function LIST.GetPlayer(name, createnew)
     
     --make copy
     local objcopy = {}
-    for key,val in pairs(obj) do
-        objcopy[key] = val
+    if obj then
+	    for key,val in pairs(obj) do
+	        objcopy[key] = val
+	    end
     end
     
     return objcopy
@@ -436,6 +444,89 @@ function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
 	end
 end
 
+--updates a player's attendance based on the last numdays of raids
+local function raidobjcomparer(data1, data2)
+	--data1/2 is a list containing owner and idx
+	local time1 = fRaid.db.global.Raid.RaidList[data1[1]][data1[2]].StartTime
+	local time2 = fRaid.db.global.Raid.RaidList[data2[1]][data2[2]].StartTime
+	return time1 < time2
+end
+function fRaid.Player.UpdateAttendance(numdays)
+	local x = fLib.GetTimestampObj()
+	local y = fLib.AddDays(x, -numdays)
+	local cutoff = fLib.GetTimestamp(y)
+	fRaid:Print("Calculating for raids after ", cutoff)
+	
+	--First, let's collect the raids w/in the last numdays
+	local temp = {}
+	for owner, ownersection in pairs(fRaid.db.global.Raid.RaidList) do
+		for idx, raidobj in ipairs(ownersection) do
+			if raidobj.StartTime > cutoff then
+				tinsert(temp, {owner, idx})
+			end
+		end
+	end
+	
+	sort(temp, raidobjcomparer)
+	
+	--Now, let's zero everyone's attendance
+	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
+		playerobj.attendance = 0
+	end
+	
+	--Now, let's go thru each raid and add up their attendance
+	local totalraidcount = 0
+	for idx, data in pairs(temp) do
+		totalraidcount = totalraidcount + 1
+		local owner = data[1]
+		local idx = data[2]
+		local raidobj = fRaid.db.global.Raid.RaidList[owner][idx]
+
+		for raidername, raiderobj in pairs(raidobj.RaiderList) do
+			local playerobj = fRaid.db.global.Player.PlayerList[raidername]
+			if playerobj then
+				playerobj.attendance = playerobj.attendance + 1
+			end
+		end
+		
+		for idx, raidername in ipairs(raidobj.ListedPlayers) do
+			local playerobj = fRaid.db.global.Player.PlayerList[raidername]
+			if playerobj then
+				playerobj.attendance = playerobj.attendance + 1
+			end
+		end
+	end
+	fRaid:Print(totalraidcount, " raids in the past ", numdays, " days")
+end
+
+function fRaid.Player.PrintAttendance(thresholdatt)
+	if not thresholdatt then
+		thresholdatt = 0
+	end
+
+	local function sortfunc(name1, name2)
+		local ret = name1 < name2
+		local att1 = fRaid.db.global.Player.PlayerList[name1].attendance
+		local att2 = fRaid.db.global.Player.PlayerList[name2].attendance
+		if att1 ~= att2 then
+			ret = att1 > att2
+		end
+		return ret
+	end
+	local temp = {}
+	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
+		--fRaid:Print(playername, playerobj.attendance)
+		if playerobj.attendance >= thresholdatt then
+			tinsert(temp, playername)
+		end
+	end
+	sort(temp, sortfunc)
+	
+	for _, playername in ipairs(temp) do
+		fRaid:Print(playername, fRaid.db.global.Player.PlayerList[playername].attendance)
+	end
+end
+
 --cmd is a player name or TODO: one of the keywords
 local keywords = {
     priest = true,
@@ -602,7 +693,7 @@ function fRaid.Player.View()
                     self.table.columns[2].cells[i]:SetText(data.dkp)
                     self.table.columns[3].cells[i]:SetText(data.rank)
                     self.table.columns[4].cells[i]:SetText(data.role)
-                    self.table.columns[5].cells[i]:SetText('')
+                    self.table.columns[5].cells[i]:SetText(data.attendance)
                     self.table.columns[6].cells[i]:SetText('')
                     --self.table.columns[7].cells[i]:SetText(index)
                     
@@ -674,6 +765,12 @@ function fRaid.Player.View()
                 else
                     ret = adata.dkp < bdata.dkp
                 end
+            elseif SORT_NAME == 'Att' then
+            	if adata.attendance == bdata.attendance then
+            		ret = a > b
+            	else
+            		ret = adata.attendance < bdata.attendance
+            	end
             else
                 ret = a > b
             end
