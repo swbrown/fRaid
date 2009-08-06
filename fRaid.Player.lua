@@ -458,16 +458,7 @@ function fRaid.Player.UpdateAttendance(numdays)
 	fRaid:Print("Calculating for raids after ", cutoff)
 	
 	--First, let's collect the raids w/in the last numdays
-	local temp = {}
-	for owner, ownersection in pairs(fRaid.db.global.Raid.RaidList) do
-		for idx, raidobj in ipairs(ownersection) do
-			if raidobj.StartTime > cutoff then
-				tinsert(temp, {owner, idx})
-			end
-		end
-	end
-	
-	sort(temp, raidobjcomparer)
+	local temp = fRaid.Raid.GetSortedRaidList(cutoff)
 	
 	--Now, let's zero everyone's attendance
 	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do

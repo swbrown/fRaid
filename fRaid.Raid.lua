@@ -69,12 +69,7 @@ function fRaid.Raid.Stop()
 		fRaid.Raid.StopProgressionDkpTimer()
 		
 		--save listed players who haven't been in the raid already
-		local tempp = fList.GetPlayers()
-		for idx, name in ipairs(tempp) do
-			if not fRaid.db.global.Raid.CurrentRaid.RaiderList[name] then
-				tinsert(fRaid.db.global.Raid.CurrentRaid.ListedPlayers, name)
-			end
-		end
+		fRaid.Raid.SaveListedPlayers()
 		
 	    --archive CurrentRaid
 	    if not fRaid.db.global.Raid.RaidList[UnitName('player')] then
@@ -94,6 +89,21 @@ function fRaid.Raid.Stop()
 	end
 end
 
+function fRaid.Raid.SaveListedPlayers()
+	--save listed players who haven't been in the raid already
+	if fRaid.Raid.IsTracking() then
+		local tempp = fList.GetPlayers()
+		for idx, name in ipairs(tempp) do
+			if not fRaid.db.global.Raid.CurrentRaid.RaiderList[name] then
+				if not fLib.ExistsInList(fRaid.db.global.Raid.CurrentRaid.ListedPlayers, name) then
+					tinsert(fRaid.db.global.Raid.CurrentRaid.ListedPlayers, name)
+				end
+			end
+		end
+	else
+		fRaid:Print('No raid is being tracked.')
+	end
+end
 
 --track the raiders who have joined or left the raid
 function fRaid.Raid.TrackRaiders()
@@ -175,8 +185,30 @@ function fRaid.Raid.StopProgressionDkpTimer()
 	 fRaid:Print('Progression Dkp Timer stopped.')
 end
 
-function fRaid.Raid.CalculatePlayerAttendance(name)
+--returns a sorted list of {owner,idx}
+function fRaid.Raid.GetSortedRaidList(cutoff)
+	--updates a player's attendance based on the last numdays of raids
+	local function raidobjcomparer(data1, data2)
+		--data1/2 is a list containing owner and idx
+		local time1 = fRaid.db.global.Raid.RaidList[data1[1]][data1[2]].StartTime
+		local time2 = fRaid.db.global.Raid.RaidList[data2[1]][data2[2]].StartTime
+		return time1 < time2
+	end
 
+	local temp = {}
+	for owner, ownersection in pairs(fRaid.db.global.Raid.RaidList) do
+		for idx, raidobj in ipairs(ownersection) do
+			if not cutoff then
+				tinsert(temp, {owner, idx})
+			elseif raidobj.StartTime > cutoff then
+				tinsert(temp, {owner, idx})
+			end
+		end
+	end
+	
+	sort(temp, raidobjcomparer)
+	
+	return temp
 end
 
 ------------------------------
