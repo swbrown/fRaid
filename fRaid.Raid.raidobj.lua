@@ -6,8 +6,23 @@
 --contains Data
 
 --raidobj.Data
---Owner, StartTime, EndTime, IsProgression,
---RaiderList, ListedPlayers, BossList, DkpAwarded
+--Owner - string
+--StartTime - string
+--EndTime - string
+--IsProgression - boolean
+--RaiderList - key = name, value = raiderobj
+----raiderobj
+------guild, rank, timestamplist
+--ListedPlayers - list of names
+--BossList - key = instance, value = areaobj
+----areaobj - key = name, value = bossobj
+----bossobj
+------time
+------dkp
+------loot
+--DkpAwarded - list of dkpobj (doesn't include bosskill dkp)
+----dkpobj: t, dkp
+
 
 fRaid.Raid.raidobj = {}
 local myfuncs = {}
@@ -51,6 +66,9 @@ function myfuncs.AwardDkp(self, amount, timestamp)
 		timestamp = fLib.GetTimestamp()
 	end
 
+	--TODO: add this dkp award to the DkpAwarded list
+	tinsert(self.Data.DkpAwarded, {timestamp, amount})
+
 	local present = false
 	for name,data in pairs(self.Data.RaiderList) do
 		present = false
@@ -71,9 +89,7 @@ function myfuncs.AwardDkp(self, amount, timestamp)
 		if present then
 			fRaid.Player.AddDkp(name, amount, timestamp)
 		end
-	end
-	
-	--TODO: add this dkp award to the DkpAwarded list 
+	end 
 end
 
 function myfuncs.AddListedPlayers(self, listobj)
@@ -88,21 +104,21 @@ function myfuncs.AddListedPlayers(self, listobj)
 	
 	for idx, name in ipairs(tempp) do
 		--if they haven't been in the raid yet
-		if not self.RaiderList[name] then
+		if not self.Data.RaiderList[name] then
 			--and aren't already in ListedPlayers
-			if not fLib.ExistsInList(self.ListedPlayers, name) then
+			if not fLib.ExistsInList(self.Data.ListedPlayers, name) then
 				--add them
-				tinsert(self.ListedPlayers, name)
+				tinsert(self.Data.ListedPlayers, name)
 			end
 		end
 	end
 	
 	--clean up ListedPlayers
 	local idx
-	for name, _ in pairs(self.RaiderList) do
-		idx = fLib.ExistsInList(self.ListedPlayers, name)
+	for name, _ in pairs(self.Data.RaiderList) do
+		idx = fLib.ExistsInList(self.Data.ListedPlayers, name)
 		if idx then
-			tremove(self.ListedPlayers, idx)
+			tremove(self.Data.ListedPlayers, idx)
 		end
 	end
 end
