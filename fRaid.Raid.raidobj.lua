@@ -1,6 +1,57 @@
 -- Author      : Jessica Chen Huang
 -- Create Date : 6/15/2009 6:30PM
 
+--There are 3 types of functions: active, simulation and maintenance.
+--Active(A) - uses the current timestamp
+--Simulation(S) - uses a provided timestamp
+--Maintenance(M) - uses some index referencing the Data
+
+--Active/Simulation
+----functions should be called in the order they are happening in real life
+----the timestamp should be bewteen starttime and endtime if it exists
+
+--(M) NewPlayer(name)
+----creates/adds a new raiderobj to self.Data.RaiderList
+
+--(M) CleanupRaiderList()
+----not sure if i need a function like this yet...
+----removes raiderobjs from self.Data.RaiderList which have no entries in raidts or listts
+
+--(A/S) JoinRaid(timestamp, name), LeaveRaid(timestamp, name)
+----updates self.Data.RaiderList[name].raidts
+----timestamp must be later than the last ts in raidts
+
+--(A/S) List(timestamp, name), Unlist(timestamp, name)
+----updates self.Data.RaiderList[name].listts
+----timestamp must be later than the last ts in listts
+
+--(A/S) AddBoss(timestamp, bossname)
+----creates/adds a new bossobj to self.Data.BossList
+
+--(A/S) AddDkpCharge(timestamp, amount)
+----creates/adds a new chargeobj to self.Data.DkpCharge
+----adds the dkp amount to all the raiders currently in the raid
+----adds half dkp amount to all the raiders currently in the list
+
+--(M) ChangeBossDkpCharge(bossname, amount)
+----updates self.Data.BossList[bossname]
+----
+
+--Active/Simulation
+--adding a dkpcharge, timestamp
+--adding a boss dkpcharge, no timestamp needed
+
+
+--Maintenance
+--removing a player, provide the name
+----will need to uncharge any dkpcharges or bossdkpcharges
+----player cannot be removed if they've won any loot
+--removing a dkpcharge, provide the index
+----will need to uncharge dkp to all the players present during the original dkpcharge
+--change a boss dkpcharge, provide bossname
+----
+
+
 --raidobj
 --contains functions
 --contains Data
