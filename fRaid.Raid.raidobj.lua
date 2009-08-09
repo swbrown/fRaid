@@ -12,8 +12,7 @@
 --IsProgression - boolean
 --RaiderList - key = name, value = raiderobj
 ----raiderobj
-------guild, rank, timestamplist
---ListedPlayers - list of names
+------guild, rank, timestamplist, listedtimestamplist
 --BossList - key = instance, value = areaobj
 ----areaobj - key = name, value = bossobj
 ----bossobj
@@ -36,7 +35,7 @@ function fRaid.Raid.raidobj.new()
 	--ro.Data.IsProgression = false
 	
 	ro.Data.RaiderList = {}
-	ro.Data.ListedPlayers = {}
+	--ro.Data.ListedPlayers = {}
 	ro.Data.BossList = {}
 	ro.Data.DkpAwarded = {}
 	
@@ -61,20 +60,32 @@ function myfuncs.Load(self, data)
 end
 
 --timestmp: optional
-function myfuncs.SetStartTime(self, timestamp)
-	if starttime then
-		self.Data.StartTime = starttime
+function myfuncs.Start(self, timestamp)
+	if self.Data.StartTime then
+		fRaid:Print("This raidobj is already started.")
+	elseif self.Data.EndTime then
+		fRaid:Print("This raidobj is already stopped.")
 	else
-		self.Data.StartTime = fLib.GetTimestamp()
+		if timestamp then
+			self.Data.StartTime = timestamp
+		else
+			self.Data.StartTime = fLib.GetTimestamp()
+		end
 	end
 end
 
 --timestamp: optional
-function myfuncs.SetEndTime(self, timestamp)
-	if starttime then
-		self.Data.EndTime = starttime
+function myfuncs.Stop(self, timestamp)
+	if not self.Data.StartTime then
+		fRaid:Print("This raidobj has not yet started.")
+	elseif self.Data.EndTime then
+		fRaid:Print("This raidobj has already stopped.")
 	else
-		self.Data.EndTime = fLib.GetTimestamp()
+		if timestamp then
+			self.Data.EndTime = timestamp
+		else
+			self.Data.EndTime = fLib.GetTimestamp()
+		end
 	end
 end
 
@@ -89,6 +100,8 @@ function myfuncs.AddDkpChange(self, amount, timestamp)
 		fRaid:Print('Ignoring attempt to add a dkp change of 0')
 		return
 	end
+	
+	
 
 	--record this dkp change to the DkpChange list
 	tinsert(self.Data.DkpChange, {timestamp, amount})
@@ -233,6 +246,10 @@ function myfuncs.AddRaider(self, name, guild, rank, timestamp)
 	--should we update their guild and rank?... i guess so?...
 	raiderobj.guild = guild
 	raiderobj.rank = rank
+end
+
+local function myfuncs.InsertRaider(self, name, starttime, endtime)
+	
 end
 
 --track the raiders who have joined or left the raid
