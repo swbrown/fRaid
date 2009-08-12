@@ -487,7 +487,7 @@ end
 --open the bid window if it isn't open
 function fRaidBid.LOOT_OPENED()
 	if db.alwaysshow or UnitInRaid('player') then
-		addon:ShowGUI()
+		--addon:ShowGUI()
 	end
 end
 
@@ -523,7 +523,7 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 		local iteminfo = BIDLIST.GetItemInfoByItemId(itemid)
 		if iteminfo and iteminfo.isopen then --the item is up for bid and open
 			local bidinfo = BIDLIST.GetBidInfo(iteminfo.number, name)
-			if bidinfo and not bidinfo.awarded then	--player has bid on that item
+			if bidinfo and bidinfo.winner and not bidinfo.awarded then	--player has bid on that item
 				--charge dkp
 				fRaidBid.ChargeDKP(iteminfo, bidinfo)
 				

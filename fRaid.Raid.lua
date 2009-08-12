@@ -10,6 +10,7 @@
 fRaid.Raid = {}
 fRaid.Raid.IsInRaid = false
 local MYGUILD = GetGuildInfo('player')
+local curraidobj = nil
 
 function fRaid.Raid.IsTracking()
 	if fRaid.db.global.Raid.CurrentRaid then
@@ -47,6 +48,10 @@ function fRaid.Raid.Start()
         fRaid:Print('You are already tracking a raid.')
     else
         --start tracking
+        curraidobj = fRaid.Raid.raidobj.new()
+        fRaid.db.global.Raid.CurrentRaid = curraidobj.Data
+        
+        --[[
         fRaid.db.global.Raid.CurrentRaid = {}
         
         fRaid.db.global.Raid.CurrentRaid.StartTime = fLib.GetTimestamp()
@@ -56,6 +61,8 @@ function fRaid.Raid.Start()
         
         fRaid.db.global.Raid.CurrentRaid.RaiderList = {}
         fRaid.db.global.Raid.CurrentRaid.ListedPlayers = {}
+        --]]
+        
         fRaid.Raid.TrackRaiders()
         
         fRaid:Print('Raid tracking started.')

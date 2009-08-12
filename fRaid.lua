@@ -183,7 +183,6 @@ function addon:OnInitialize()
 	--self:RegisterEvent('START_LOOT_ROLL', fRaidLoot.Test)
 	--self:RegisterEvent('UPDATE_MASTER_LOOT_LIST', fRaidLoot.Test)
 	self:RegisterEvent('LOOT_SLOT_CLEARED')
-	--self:RegisterEvent('PLAYER_GUILD_UPDATE')
 	
 	self:RegisterEvent('PLAYER_ENTERING_WORLD')
 	
@@ -289,11 +288,6 @@ end
 
 function addon:PLAYER_ENTERING_WORLD(...)
 	fRaid.Instance.PLAYER_ENTERING_WORLD()
-end
-
-function addon:PLAYER_GUILD_UPDATE(...)
-	print('<<PLAYER_GUILD_UPDATE>>')
-	print(...)
 end
 
 function addon:RAID_ROSTER_UPDATE(...)

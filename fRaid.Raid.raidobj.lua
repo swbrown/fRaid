@@ -86,19 +86,15 @@ function fRaid.Raid.raidobj.new()
 	--ro.Data.IsProgression = false
 	
 	ro.Data.RaiderList = {}
-	--ro.Data.ListedPlayers = {}
+	ro.Data.ListedPlayers = {}
 	ro.Data.BossList = {}
 	ro.Data.DkpAwarded = {}
-	
-	local funcs = {
-		Load = myfuncs.Load,
-		SetStartTime = myfuncs.SetStartTime,
-		SetEndtTime = myfuncs.SetEndTime,
-		AwardDkp = myfuncs.AwardDkp,
-	}
-	
-	for funcn,funcp in pairs(funcs) do
-		ro[funcn] = funcp
+
+	--map functions
+	for funcn, funcf in pairs(myfuncs) do
+		if type(funcf) == 'function' then
+			ro[funcn] = funcf
+		end
 	end
 	
 	return ro
@@ -155,7 +151,7 @@ function myfuncs.AddDkpChange(self, amount, timestamp)
 	
 
 	--record this dkp change to the DkpChange list
-	tinsert(self.Data.DkpChange, {timestamp, amount})
+	--tinsert(self.Data.DkpChange, {timestamp, amount})
 
 	--award dkp to the raiders in the raid at the time
 	local present = false
@@ -178,7 +174,12 @@ function myfuncs.AddDkpChange(self, amount, timestamp)
 		if present then
 			fRaid.Player.AddDkp(name, amount, 'dkpchange added at ' .. timestamp)
 		end
-	end 
+	end
+	
+	--temporary fix....
+	for _, name in ipairs(self.Data.ListedPlayers) do
+		fRaid.Player.AddDkp(name, amount/2, 'dkpchange added at ' .. timestamp)
+	end
 end
 
 --idx: required
@@ -299,7 +300,33 @@ function myfuncs.AddRaider(self, name, guild, rank, timestamp)
 	raiderobj.rank = rank
 end
 
-local function myfuncs.InsertRaider(self, name, starttime, endtime)
+function myfuncs.LeaveRaider(self, name, timestamp)
+	if not timestamp then
+		timestamp = fLib.GetTimestamp()
+	end
+	local tsobj = {starttime = timestamp}
+	
+	local raiderobj = self.Data.RaiderList[name]
+	
+	if not raiderobj then
+		fRaid:Print(name .. ' never joined the raid.')
+		return
+	else
+		--end the timetsamp entry if valid
+		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
+		if not timestampobj.starttime then
+			fRaid:Print(name .. ' has not joined the raid recently.')
+			return
+		end
+		if timestamp < timestampobj.starttime then
+			fRaid:Print(timestamp .. ' cannot be earlier than ' .. timestampobj.starttime)
+			return
+		end
+		timestampobj.endtime = timestamp
+	end
+end
+
+function myfuncs.InsertRaider(self, name, starttime, endtime)
 	
 end
 

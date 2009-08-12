@@ -46,6 +46,7 @@ local function createplayerobj()
 	    dkp = 0,
 	    attendance = 0,
 	    class = '',
+	    rank = '',
 	    role = '', --dps, heal, tank?
 	    attrank1 = '',
 	    attrank2 = '',
@@ -89,6 +90,13 @@ function LIST.GetPlayer(name, createnew)
     if createnew and not obj then
         obj = createplayerobj()
         fRaid.db.global.Player.PlayerList[name] = obj --add player
+        
+        local rosterdata = fLib.Guild.GetInfo(name)
+        if rosterdata then
+	        obj.rank = rosterdata.rank
+	        obj.class = rosterdata.class
+        end
+        
         fRaid.db.global.Player.Count = fRaid.db.global.Player.Count + 1
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
@@ -210,6 +218,18 @@ function LIST.RecalculateDkp()
     fRaid.db.global.Player.LastModified = latesttimestamp
     
     fRaid:Print('Player List recalculated. ' .. LIST.Count(true) .. ' found.')
+end
+
+function LIST.RefreshGuildInfo()
+	local gdata
+	for name, data in pairs(fRaid.db.global.Player.PlayerList) do
+		gdata = fLib.Guild.GetInfo(name)
+		if gdata then
+			data.rank = gdata.rank
+		else
+			data.rank = ''
+		end
+	end
 end
 
 function LIST.CompareDkpList(t1, t2)
@@ -391,6 +411,7 @@ end
 function fRaid.Player.DeletePlayerHandler(name)
     LIST.DeletePlayer(name)
     fRaid:Print('Deleted ' .. name)
+    fRaid.GUI2.PlayerFrame:Refresh()
 end
 
 function fRaid.Player.AddDkpToRaid(amount, includelistedplayers)
@@ -558,11 +579,17 @@ function fRaid.Player.WhisperDkp(cmd, whispertarget)
     end
 end
 
-function fRaid.Player.Find(name)
+function fRaid.Player.Find(name, cutoff)
 	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
 		for idx, change in ipairs(changelist) do
 			if change[1] == name then
-				fRaid:Print(change[2], change[3], change[4], change[5])
+				if cutoff then
+					if change[4] >= cutoff then
+						fRaid:Print(user, change[2], change[3], change[4], change[5])
+					end
+				else
+					fRaid:Print(user, change[2], change[3], change[4], change[5])
+				end
 			end
 		end
 	end
@@ -599,7 +626,7 @@ function fRaid.Player.View()
                 mf.lastmodified = fRaid.db.global.Player.LastModified
                 
                 for name,data in pairs(fRaid.db.global.Player.PlayerList) do
-                    tinsert(mf.index_to_name, name)
+                    	tinsert(mf.index_to_name, name)
                 end
                 
                 local max = #mf.index_to_name - mf.table.rowcount + 1
@@ -750,7 +777,13 @@ function fRaid.Player.View()
             
             local ret = true
             
-            if SORT_NAME == 'Dkp' then
+            if SORT_NAME == 'Rank' then
+            	if adata.rank == bdata.rank then
+            		ret = a > b
+            	else
+            		ret = adata.rank > bdata.rank
+            	end
+            elseif SORT_NAME == 'Dkp' then
                 if adata.dkp == bdata.dkp then
                     ret = a > b
                 else
@@ -924,6 +957,20 @@ function fRaid.Player.View()
             --refresh row (just going to refresh entire table)
             mf:Refresh()
         end)
+        
+        --DELETE button
+        ui = fLibGUI.CreateActionButton(mf)
+        mf.deletebutton = ui
+        ui:SetText('DELETE')
+        ui:SetFrameLevel(4)
+        ui:SetWidth(ui:GetTextWidth())
+        ui:SetHeight(ui:GetTextHeight())
+        ui:SetScript('OnClick', function()
+        	if mf.title_name:GetText() then
+        		fRaid.Player.DeletePlayer(mf.title_name:GetText())
+        	end
+        end)
+        ui:SetPoint('TOPLEFT', prevui, 'BOTTOMRIGHT', 0, -5)
         
         --separator
         ui = fLibGUI.CreateSeparator(mf)
