@@ -38,18 +38,14 @@
 ----creates/adds a new raiderobj to Data.RaiderList
 
 --(M) CleanupRaiderList()
-----not sure if i need a function like this yet...
 ----removes raiderobjs from Data.RaiderList which have no entries in raidts or listts
 
---(A/S) JoinRaid(timestamp, name), LeaveRaid(timestamp, name)
+--(A/S) JoinRaid(timestamp, name), LeaveRaid(name, timestamp)
 ----updates Data.RaiderList[name].raidts
-----timestamp must be in between Data.StarTime and Data.EndTime
-----timestamp must be later than the last ts in raidts
 
---(A/S) List(timestamp, name), Unlist(timestamp, name)
+--(A/S) List(name, timestamp), Unlist(name, timestamp)
 ----updates Data.RaiderList[name].listts
-----timestamp must be in between Data.StarTime and Data.EndTime
-----timestamp must be later than the last ts in listts
+----cannot be in list if in raid
 
 --(M) DeleteRaider(name)
 ----cannot be deleted if they won loot (lootobj)
@@ -79,7 +75,7 @@
 ----wipes the lootobj at Data.InstanceList[instancename][bossname].LootList
 
 --(A/S) AddDkpCharge(amount, timestamp)
-----creates/adds a new chargeobj to Data.DkpCharge
+----creates/adds a new chargeobj to Data.DkpChargeList
 ----charge dkp to raid/listed
 
 --(M) DeleteDkpCharge(timestamp)
@@ -105,7 +101,7 @@ function fRaid.Raid.raidobj.new()
 	ro.Data.RaiderList = {}
 	ro.Data.ListedPlayers = {}
 	ro.Data.BossList = {}
-	ro.Data.DkpAwarded = {}
+	ro.Data.DkpChargeList = {}
 
 	--map functions
 	for funcn, funcf in pairs(myfuncs) do
@@ -123,37 +119,25 @@ function myfuncs.Load(self, data)
 	self.Data = data
 end
 
---(A) Start(timestamp)
+--(A/S) Start(timestamp)
 ----timestmp: optional
 ----sets Data.StartTime
 function myfuncs.Start(self, timestamp)
-	if self.Data.StartTime then
-		fRaid:Print("This raidobj is already started.")
-	elseif self.Data.EndTime then
-		fRaid:Print("This raidobj is already stopped.")
+	if timestamp then
+		self.Data.StartTime = timestamp
 	else
-		if timestamp then
-			self.Data.StartTime = timestamp
-		else
-			self.Data.StartTime = fLib.GetTimestamp()
-		end
+		self.Data.StartTime = fLib.GetTimestamp()
 	end
 end
 
---(A) Stop(timestamp)
+--(A/S) Stop(timestamp)
 ----timestamp: optional
 ----sets Data.StopTime
 function myfuncs.Stop(self, timestamp)
-	if not self.Data.StartTime then
-		fRaid:Print("This raidobj has not yet started.")
-	elseif self.Data.EndTime then
-		fRaid:Print("This raidobj has already stopped.")
+	if timestamp then
+		self.Data.EndTime = timestamp
 	else
-		if timestamp then
-			self.Data.EndTime = timestamp
-		else
-			self.Data.EndTime = fLib.GetTimestamp()
-		end
+		self.Data.EndTime = fLib.GetTimestamp()
 	end
 end
 
@@ -179,87 +163,113 @@ end
 ----removes raiderobjs from Data.RaiderList which have no entries in raidts or listts
 function myfuncs.CleanupRaiderList(self)
 	for name, raiderobj in pairs(self.Data.RaiderList) do
-		if #raidts == 0 and #listts == 0 then
+		if #raiderobj.raidts == 0 and #raiderobj.listts == 0 then
 			self.Data.RaiderList[name] = nil
 		end
 	end
 end
 
---(A/S) JoinRaid(name, timestamp), LeaveRaid(name, timestamp)
+--(A/S) JoinRaid(name, timestamp)
 ----timestamp: optional
 ----updates Data.RaiderList[name].raidts
-----timestamp must be in between Data.StarTime and Data.EndTime
-----timestamp must be later than the last ts in raidts
+----updates Data.RaiderList[name].listts
 function myfuncs.JoinRaid(self, name, timestamp)
 	if not timestamp then timestamp = fLib.GetTimestamp() end
-	
-	if timestamp < self.Data.StartTime or timestamp > self.Data.EndTime then
-		fRaid:Print('JoinRaid: timestamp out of range')
-		return
-	end 
 	local newtsobj = {timestamp}
-	
 	local raiderobj = self:NewPlayer(name)
+
+	--assume caller is doing the right thing
+	--timestamp must be later than last raidts end time and last listts start or end time
+	local raidjoinable = false
 	local tsobj = raiderobj.raidts[#raiderobj.raidts]
-	if tsobj then
-		if tsobj[2] then
+	if not tsobj then
+		raidjoinable = true
+	else
+		if tsobj[2] then --is an end time
 			if timestamp > tsobj[2] then
-				tinsert(raiderobj.raidts, newtsobj)
+				raidjoinable = true
 			else
-				fRaid:Print('JoinRaid: timestamp too early')
+				fRaid:Print('JoinRaid failed: 1 timestamp too early')
 			end
-		elseif tsobj[1] then
-			if timestamp > tsobj[1] then
-				fRaid:Print('JoinRaid: '..name..' already in raid')
+		elseif tsobj[1] then --is a start time
+			if timestamp >= tsobj[1] then
+				fRaid:Print('JoinRaid failed: '..name..' is already in raid')
 			else
-				fRaid:Print('JoinRaid: timestamp too early')
+				fRaid:Print('JoinRaid failed: 2 timestamp too early')
 			end
 		else
-			--for some reason this tsobj is empty... so replacing it
-			raiderobj.raidts[#raiderobj.raidts] = newtsobj
+			--tsobj should never be empty, but in case it is...
+			tremove(raiderobj.raidts)
+			fRaid:Print('JoinRaid failed: empty raid tsobj')
 		end
-	else
-		tinsert(raiderobj.raidts, newtsobj)
 	end
 	
-end
-
-function myfuncs.AddRaider(self, name, guild, rank, timestamp)
-	if not timestamp then
-		timestamp = fLib.GetTimestamp()
-	end
-	local tsobj = {starttime = timestamp}
-
-	local raiderobj = self.Data.RaiderList[name]
-	
-	if not raiderobj then
-		--create new raiderobj
-		raiderobj = {
-			guild = g, --maybe they aren't in our guild
-			rank = r, --maybe their rank changes over time? so should remember what it was
-			timestamplist = {
-				tsobj
-			}
-		}
+	if raidjoinable then
+		raidjoinable = false
 		
-		self.Data.RaiderList[name] = raiderobj
-	else
-		--update timestamp if they are rejoining raid
-		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
-		if timestampobj.endtime then
-			--add new timestampobj
-			tinsert(raiderobj.timestamplist, tsobj)
+		--check listts start/end times
+		tsobj = raiderobj.listts[#raiderobj.listts]
+		if not tsobj then
+			raidjoinable = true
+		else
+			if tsobj[2] then -- is an end time
+				if timestamp > tsobj[2] then
+					raidjoinable = true
+				else
+					fRaid:Print('JoinRaid failed: 3 timestamp too early')
+				end
+			elseif tsobj[1] then -- is a start time
+				if timestamp > tsobj[1] then
+					raidjoinable = true
+					--unlist raider
+					tsobj[2] = timestamp
+				else
+					fRaid:Print('JoinRaid failed: 4 timestamp too early')
+				end
+			else
+				--tsobj should never be empty, but in case it is...
+				tremove(raiderobj.listts)
+				fRaid:Print('JoinRaid failed: empty list tsobj')
+			end
+		end
+		
+		if raidjoinable then
+			--join raid
+			tinsert(raiderobj.raidts, newtsobj)
+			fRaid:Print(name..' has joined the raid')
+			return
 		end
 	end
-
-	--should we update their guild and rank?... i guess so?...
-	raiderobj.guild = guild
-	raiderobj.rank = rank
+	
+	fRaid:Print(name..' failed to join the raid')
 end
---(A/S) List(timestamp, name), Unlist(timestamp, name)
+
+--(A/S) LeaveRaid(name, timestamp)
+----timestamp: optional
+----updates Data.RaiderList[name].raidts
+function myfuncs.LeaveRaid(self, name, timestamp)
+	if not timestamp then timestamp = fLib.GetTimestamp() end
+	local raiderobj = self:NewPlayer(name)
+	
+	--only if last tsobj is missing end time
+	--and timestamp must be later than last raid start time
+	local tsobj = raiderobj.raidts[#raiderobj.raidts]
+	if tsobj and tsobj[1] and not tsobj[2] and timestamp > tsobj[1] then
+		tsobj[2] = timestamp
+	end
+	
+	fRaid:Print('LeaveRaid failed.')
+end
+
+--(A/S) List(name, timestamp), Unlist(name, timestamp)
 ----updates Data.RaiderList[name].listts
-----timestamp must be in between Data.StarTime and Data.EndTime
-----timestamp must be later than the last ts in listts
+----cannot be in list if in raid
+function myfuncs.List(name, timestamp)
+	if not timestamp then timestamp = fLib.GetTimestamp() end
+	local raiderobj = self:NewPlayer(name)
+	
+	
+end
 
 --(M) DeleteRaider(name)
 ----cannot be deleted if they won loot (lootobj)
