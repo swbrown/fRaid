@@ -1,6 +1,24 @@
 -- Author      : Jessica Chen Huang
 -- Create Date : 6/15/2009 6:30PM
 
+--Data.StartTime
+--Data.StopTime
+--Data.RaiderList
+----key = raidername, value = raiderobj
+--Data.InstanceList
+----key = instancename, value = instanceobj
+--Data.DkpChargeList
+----key = timestamp, value = amount
+
+--raiderobj: guild, rank, raidts, listts
+--instanceobj: (aka BossList)
+----key = bossname, value = bossobj
+--bossobj: ts, dkp, LootList
+--LootList:
+----key = idx, value = lootobj
+--lootobj: itemid, dkp, winner, BidList
+
+
 --There are 3 types of functions: active, simulation and maintenance.
 --Active(A) - uses the current timestamp
 --Simulation(S) - uses a provided timestamp
@@ -10,68 +28,67 @@
 ----functions should be called in the order they are happening in real life
 ----the timestamp should be bewteen starttime and endtime if it exists
 
+--(A) Start(timestamp)
+----sets Data.StartTime
+
+--(A) Stop(timestamp)
+----sets Data.StopTime
+
 --(M) NewPlayer(name)
-----creates/adds a new raiderobj to self.Data.RaiderList
+----creates/adds a new raiderobj to Data.RaiderList
 
 --(M) CleanupRaiderList()
 ----not sure if i need a function like this yet...
-----removes raiderobjs from self.Data.RaiderList which have no entries in raidts or listts
+----removes raiderobjs from Data.RaiderList which have no entries in raidts or listts
 
 --(A/S) JoinRaid(timestamp, name), LeaveRaid(timestamp, name)
-----updates self.Data.RaiderList[name].raidts
+----updates Data.RaiderList[name].raidts
+----timestamp must be in between Data.StarTime and Data.EndTime
 ----timestamp must be later than the last ts in raidts
 
 --(A/S) List(timestamp, name), Unlist(timestamp, name)
-----updates self.Data.RaiderList[name].listts
+----updates Data.RaiderList[name].listts
+----timestamp must be in between Data.StarTime and Data.EndTime
 ----timestamp must be later than the last ts in listts
 
---(A/S) AddBoss(timestamp, bossname)
-----creates/adds a new bossobj to self.Data.BossList
+--(M) DeleteRaider(name)
+----cannot be deleted if they won loot (lootobj)
+----need to uncharge any dkp charged by chargeobj or bossobj
+----wipes the raiderobj at Data.RaiderList[name]
 
---(A/S) AddDkpCharge(timestamp, amount)
-----creates/adds a new chargeobj to self.Data.DkpCharge
-----adds the dkp amount to all the raiders currently in the raid
-----adds half dkp amount to all the raiders currently in the list
+--(M) NewInstance(instancename)
+----creates/adds a new instanceobj to Data.InstanceList
+
+--(M) DeleteInstance(instancename)
+----uncharge any dkp charged by bossobj
+----wipes the instanceobj at Data.InstanceList[instancename]
+
+--(A/S) AddBoss(bossname, instancename, timestamp)
+----creates/adds a new bossobj to Data.InstanceList[instancename]
+----timestamp must be in between Data.StarTime and Data.EndTime
+
+--(M) DeleteBoss(bossname, instancename)
+----uncharge any dkp charged by bossobj
+----wipes the bossobj at Data.InstanceList[instancename][bossname]
+
+--(M) AddLoot(itemid, bossname, instancename)
+----creates/adds a new lootobj to Data.InstanceList[instancename][bossname].LootList
+
+--(M) DeleteLoot(itemid, bossname, instancename)
+----uncharge any dkp to lootobj.winner
+----wipes the lootobj at Data.InstanceList[instancename][bossname].LootList
+
+--(A/S) AddDkpCharge(amount, timestamp)
+----creates/adds a new chargeobj to Data.DkpCharge
+----charge dkp to raid/listed
+
+--(M) DeleteDkpCharge(timestamp)
+----uncharge any dkp charged by the chargeobj at Data.DkpCharge[timestamp]
+----wipes the chargeobj
 
 --(M) ChangeBossDkpCharge(bossname, amount)
-----updates self.Data.BossList[bossname]
-----
-
---Active/Simulation
---adding a dkpcharge, timestamp
---adding a boss dkpcharge, no timestamp needed
-
-
---Maintenance
---removing a player, provide the name
-----will need to uncharge any dkpcharges or bossdkpcharges
-----player cannot be removed if they've won any loot
---removing a dkpcharge, provide the index
-----will need to uncharge dkp to all the players present during the original dkpcharge
---change a boss dkpcharge, provide bossname
-----
-
-
---raidobj
---contains functions
---contains Data
-
---raidobj.Data
---Owner - string
---StartTime - string
---EndTime - string
---IsProgression - boolean
---RaiderList - key = name, value = raiderobj
-----raiderobj
-------guild, rank, timestamplist, listedtimestamplist
---BossList - key = instance, value = areaobj
-----areaobj - key = name, value = bossobj
-----bossobj
-------time
-------dkp
-------loot
---DkpChange - list of dkpobj (doesn't include bosskill dkp)
-----dkpobj: t, dkp
+----updates Data.InstanceList[instancename][bossname].dkp
+----charge raiders/listed any dkp change
 
 
 fRaid.Raid.raidobj = {}
@@ -106,7 +123,9 @@ function myfuncs.Load(self, data)
 	self.Data = data
 end
 
---timestmp: optional
+--(A) Start(timestamp)
+----timestmp: optional
+----sets Data.StartTime
 function myfuncs.Start(self, timestamp)
 	if self.Data.StartTime then
 		fRaid:Print("This raidobj is already started.")
@@ -121,7 +140,9 @@ function myfuncs.Start(self, timestamp)
 	end
 end
 
---timestamp: optional
+--(A) Stop(timestamp)
+----timestamp: optional
+----sets Data.StopTime
 function myfuncs.Stop(self, timestamp)
 	if not self.Data.StartTime then
 		fRaid:Print("This raidobj has not yet started.")
@@ -135,6 +156,166 @@ function myfuncs.Stop(self, timestamp)
 		end
 	end
 end
+
+--(M) NewPlayer(name)
+----creates/adds a new raiderobj to Data.RaiderList
+function myfuncs.NewPlayer(self, name)
+	if not self.Data.RaiderList[name] then
+		--create new raiderobj
+		local raiderobj = {
+			g = '', --maybe they aren't in our guild
+			r = '', --maybe their rank changes over time?
+			raidts = {},
+			listts = {}
+		}
+		
+		self.Data.RaiderList[name] = raiderobj
+	end
+	
+	return self.Data.RaiderList[name]
+end
+
+--(M) CleanupRaiderList()
+----removes raiderobjs from Data.RaiderList which have no entries in raidts or listts
+function myfuncs.CleanupRaiderList(self)
+	for name, raiderobj in pairs(self.Data.RaiderList) do
+		if #raidts == 0 and #listts == 0 then
+			self.Data.RaiderList[name] = nil
+		end
+	end
+end
+
+--(A/S) JoinRaid(name, timestamp), LeaveRaid(name, timestamp)
+----timestamp: optional
+----updates Data.RaiderList[name].raidts
+----timestamp must be in between Data.StarTime and Data.EndTime
+----timestamp must be later than the last ts in raidts
+function myfuncs.JoinRaid(self, name, timestamp)
+	if not timestamp then timestamp = fLib.GetTimestamp() end
+	
+	if timestamp < self.Data.StartTime or timestamp > self.Data.EndTime then
+		fRaid:Print('JoinRaid: timestamp out of range')
+		return
+	end 
+	local newtsobj = {timestamp}
+	
+	local raiderobj = self:NewPlayer(name)
+	local tsobj = raiderobj.raidts[#raiderobj.raidts]
+	if tsobj then
+		if tsobj[2] then
+			if timestamp > tsobj[2] then
+				tinsert(raiderobj.raidts, newtsobj)
+			else
+				fRaid:Print('JoinRaid: timestamp too early')
+			end
+		elseif tsobj[1] then
+			if timestamp > tsobj[1] then
+				fRaid:Print('JoinRaid: '..name..' already in raid')
+			else
+				fRaid:Print('JoinRaid: timestamp too early')
+			end
+		else
+			--for some reason this tsobj is empty... so replacing it
+			raiderobj.raidts[#raiderobj.raidts] = newtsobj
+		end
+	else
+		tinsert(raiderobj.raidts, newtsobj)
+	end
+	
+end
+
+function myfuncs.AddRaider(self, name, guild, rank, timestamp)
+	if not timestamp then
+		timestamp = fLib.GetTimestamp()
+	end
+	local tsobj = {starttime = timestamp}
+
+	local raiderobj = self.Data.RaiderList[name]
+	
+	if not raiderobj then
+		--create new raiderobj
+		raiderobj = {
+			guild = g, --maybe they aren't in our guild
+			rank = r, --maybe their rank changes over time? so should remember what it was
+			timestamplist = {
+				tsobj
+			}
+		}
+		
+		self.Data.RaiderList[name] = raiderobj
+	else
+		--update timestamp if they are rejoining raid
+		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
+		if timestampobj.endtime then
+			--add new timestampobj
+			tinsert(raiderobj.timestamplist, tsobj)
+		end
+	end
+
+	--should we update their guild and rank?... i guess so?...
+	raiderobj.guild = guild
+	raiderobj.rank = rank
+end
+--(A/S) List(timestamp, name), Unlist(timestamp, name)
+----updates Data.RaiderList[name].listts
+----timestamp must be in between Data.StarTime and Data.EndTime
+----timestamp must be later than the last ts in listts
+
+--(M) DeleteRaider(name)
+----cannot be deleted if they won loot (lootobj)
+----need to uncharge any dkp charged by chargeobj or bossobj
+----wipes the raiderobj at Data.RaiderList[name]
+
+--(M) NewInstance(instancename)
+----creates/adds a new instanceobj to Data.InstanceList
+
+--(M) DeleteInstance(instancename)
+----uncharge any dkp charged by bossobj
+----wipes the instanceobj at Data.InstanceList[instancename]
+
+--(A/S) AddBoss(bossname, instancename, timestamp)
+----creates/adds a new bossobj to Data.InstanceList[instancename]
+----timestamp must be in between Data.StarTime and Data.EndTime
+
+--(M) DeleteBoss(bossname, instancename)
+----uncharge any dkp charged by bossobj
+----wipes the bossobj at Data.InstanceList[instancename][bossname]
+
+--(M) AddLoot(itemid, bossname, instancename)
+----creates/adds a new lootobj to Data.InstanceList[instancename][bossname].LootList
+
+--(M) DeleteLoot(itemid, bossname, instancename)
+----uncharge any dkp to lootobj.winner
+----wipes the lootobj at Data.InstanceList[instancename][bossname].LootList
+
+--(A/S) AddDkpCharge(amount, timestamp)
+----creates/adds a new chargeobj to Data.DkpCharge
+----charge dkp to raid/listed
+
+--(M) DeleteDkpCharge(timestamp)
+----uncharge any dkp charged by the chargeobj at Data.DkpCharge[timestamp]
+----wipes the chargeobj
+
+--(M) ChangeBossDkpCharge(bossname, amount)
+----updates Data.InstanceList[instancename][bossname].dkp
+----charge raiders/listed any dkp change
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 --amount: required
 --timestamp: optional
@@ -267,38 +448,7 @@ end
 --guild: required
 --rank: required
 --timestamp: optional
-function myfuncs.AddRaider(self, name, guild, rank, timestamp)
-	if not timestamp then
-		timestamp = fLib.GetTimestamp()
-	end
-	local tsobj = {starttime = timestamp}
 
-	local raiderobj = self.Data.RaiderList[name]
-	
-	if not raiderobj then
-		--create new raiderobj
-		raiderobj = {
-			guild = g, --maybe they aren't in our guild
-			rank = r, --maybe their rank changes over time? so should remember what it was
-			timestamplist = {
-				tsobj
-			}
-		}
-		
-		self.Data.RaiderList[name] = raiderobj
-	else
-		--update timestamp if they are rejoining raid
-		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
-		if timestampobj.endtime then
-			--add new timestampobj
-			tinsert(raiderobj.timestamplist, tsobj)
-		end
-	end
-
-	--should we update their guild and rank?... i guess so?...
-	raiderobj.guild = guild
-	raiderobj.rank = rank
-end
 
 function myfuncs.LeaveRaider(self, name, timestamp)
 	if not timestamp then

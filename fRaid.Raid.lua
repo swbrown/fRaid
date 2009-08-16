@@ -21,6 +21,11 @@ end
 
 function fRaid.Raid.RAID_ROSTER_UPDATE()
     if fRaid.Raid.IsTracking() then --currently tracking a raid
+    	if not curraidobj then
+    		curraidobj = fRaid.Raid.raidobj.new()
+    		curraidobj:Load(fRaid.db.global.Raid.CurrentRaid)
+    	end
+    
         if UnitInRaid('player') then
             --update attendance
             fRaid.Raid.TrackRaiders()
@@ -49,6 +54,7 @@ function fRaid.Raid.Start()
     else
         --start tracking
         curraidobj = fRaid.Raid.raidobj.new()
+        curraidobj:Start()
         fRaid.db.global.Raid.CurrentRaid = curraidobj.Data
         
         --[[
