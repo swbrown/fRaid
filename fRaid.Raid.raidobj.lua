@@ -1,22 +1,43 @@
 -- Author      : Jessica Chen Huang
 -- Create Date : 6/15/2009 6:30PM
 
---Data.StartTime
---Data.StopTime
---Data.RaiderList
-----key = raidername, value = raiderobj
---Data.InstanceList
-----key = instancename, value = instanceobj
---Data.DkpChargeList
-----key = timestamp, value = amount
+--oRaid: oData
 
---raiderobj: guild, rank, raidts, listts
---instanceobj: (aka BossList)
-----key = bossname, value = bossobj
---bossobj: ts, dkp, LootList
---LootList:
-----key = idx, value = lootobj
---lootobj: itemid, dkp, winner, BidList
+--oData: StartTime, StopTime, tRaider, tInstance, tDkpCharge
+
+--tRaider
+----key = raidername
+----value = oRaider
+
+--tInstance
+----key = instancename
+----value = tBoss
+
+--tDkpCharge
+----key = timestamp
+----value = oCharge
+
+--oraider: guild, rank, lRaidts, lListts
+
+--tBoss
+----key = bossname
+----value = oBoss
+
+--oBoss: ts, dkp, lLoot, lRaider, lList
+
+--lRaidts: ots
+--lListts: ots
+
+--ots: s (start time), e (end time)
+
+--lLoot: oLoot
+--lRaider: raidername
+--lList: raidername
+
+--oLoot: itemid, dkp, winnername, lBid
+
+--lBid: oBid
+--oBid: raidername, ....TODO
 
 
 --There are 3 types of functions: active, simulation and maintenance.
@@ -28,40 +49,36 @@
 ----functions should be called in the order they are happening in real life
 ----the timestamp should be bewteen starttime and endtime if it exists
 
---(A) Start(timestamp)
-----sets Data.StartTime
-
---(A) Stop(timestamp)
-----sets Data.StopTime
+--(A/S) Start(timestamp), Stop(timestamp)
+----sets oData.StartTime, oData.StopTime
 
 --(M) NewPlayer(name)
-----creates/adds a new raiderobj to Data.RaiderList
+----creates/adds a new oRaider to oData.tRaider
 
 --(M) CleanupRaiderList()
-----removes raiderobjs from Data.RaiderList which have no entries in raidts or listts
+----removes oRaiders from oData.tRaider which have no entries in lRaidts or lListts
 
---(A/S) JoinRaid(timestamp, name), LeaveRaid(name, timestamp)
-----updates Data.RaiderList[name].raidts
+--(A/S) JoinRaid(name, timestamp), LeaveRaid(name, timestamp)
+----updates oData.tRaider[name].lRaidts,lListts
 
 --(A/S) List(name, timestamp), Unlist(name, timestamp)
-----updates Data.RaiderList[name].listts
+----updates oData.tRaider[name].lListts
 ----cannot be in list if in raid
 
 --(M) DeleteRaider(name)
-----cannot be deleted if they won loot (lootobj)
-----need to uncharge any dkp charged by chargeobj or bossobj
-----wipes the raiderobj at Data.RaiderList[name]
+----cannot be deleted if they won loot (oLoot)
+----need to uncharge any dkp charged by oCharge or oBoss
+----wipes the oRaider at oData.tRaider[name]
 
 --(M) NewInstance(instancename)
-----creates/adds a new instanceobj to Data.InstanceList
+----creates/adds an empty tBoss in oData.tInstance
 
 --(M) DeleteInstance(instancename)
-----uncharge any dkp charged by bossobj
-----wipes the instanceobj at Data.InstanceList[instancename]
+----uncharge any dkp charged by each oBoss in tBoss
+----wipes the tBoss at oData.tInstance[instancename]
 
 --(A/S) AddBoss(bossname, instancename, timestamp)
-----creates/adds a new bossobj to Data.InstanceList[instancename]
-----timestamp must be in between Data.StarTime and Data.EndTime
+----creates/adds a new oBoss to oData.tInstance[instancename]
 
 --(M) DeleteBoss(bossname, instancename)
 ----uncharge any dkp charged by bossobj
@@ -169,6 +186,37 @@ function myfuncs.CleanupRaiderList(self)
 	end
 end
 
+local function checktslist(tslist, timestamp)
+	for _, tsobj in ipairs(tslist) do
+		if tsobj[2] then --tsobj[2] can't exist w/o tsobj[1]
+			if timestamp >= tsobj[1] and timestamp <= tsobj[2] then
+				return true
+			end
+		else --tsobj[1] must exist
+			if timestamp >= tsobj[1] then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+--(M) InRaid(name, timestamp)
+----checks to see if the raider was in the raid at timestamp
+function myfuncs.InRaid(self, name, timestamp)
+	if not timestamp then timestamp = fLib.GetTimestamp() end
+	local raiderobj = self:NewPlayer(name)
+	return checktslist(raiderobj.raidts, timestamp)
+end
+
+--(M) InList(name, timestamp)
+----checks to see if the raider was in the list at timestamp
+function myfuncs.InList(self, name, timestamp)
+	if not timestamp then timestamp = fLib.GetTimestamp() end
+	local raiderobj = self:NewPlayer(name)
+	return checktslist(raiderobj.listts, timestamp)
+end
+
 --(A/S) JoinRaid(name, timestamp)
 ----timestamp: optional
 ----updates Data.RaiderList[name].raidts
@@ -256,6 +304,8 @@ function myfuncs.LeaveRaid(self, name, timestamp)
 	local tsobj = raiderobj.raidts[#raiderobj.raidts]
 	if tsobj and tsobj[1] and not tsobj[2] and timestamp > tsobj[1] then
 		tsobj[2] = timestamp
+		fRaid:Print(name..'has left the raid')
+		return
 	end
 	
 	fRaid:Print('LeaveRaid failed.')
@@ -268,6 +318,7 @@ function myfuncs.List(name, timestamp)
 	if not timestamp then timestamp = fLib.GetTimestamp() end
 	local raiderobj = self:NewPlayer(name)
 	
+	local tsobj = raiderobj.listts[#raiderobj.listts]
 	
 end
 
