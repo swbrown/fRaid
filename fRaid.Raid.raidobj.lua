@@ -3,41 +3,47 @@
 
 --oRaid: oData
 
---oData: StartTime, StopTime, tRaider, tInstance, tDkpCharge
+--oData: StartTime, StopTime, tRaiders, tInstanceTypes, lDkpCharges
 
---tRaider
+--tRaiders
 ----key = raidername
 ----value = oRaider
 
---tInstance
+--tInstanceTypes
+----key = instance type
+----val = tInstances
+
+--tInstances
 ----key = instancename
-----value = tBoss
+----value = tBosses
 
---tDkpCharge
-----key = timestamp
-----value = oCharge
-
---oraider: guild, rank, lRaidts, lListts
-
---tBoss
+--tBosses
 ----key = bossname
-----value = oBoss
+----val = oBoss
 
---oBoss: ts, dkp, lLoot, lRaider, lList
+--lDkpCharges: oCharge
 
---lRaidts: ots
---lListts: ots
+--oRaider: guild, rank, lRaidts, lListts
 
---ots: s (start time), e (end time)
+--oBoss: ts, mode, dkp, llLoot, lRaiders, lList, tToBePres
+--oCharge: ts, note, dkp, lRaiders, lList, tToBePres
+
+--lRaidts: oTs
+--lListts: oTs
+
+--oTs: s (start time), e (end time)
 
 --lLoot: oLoot
---lRaider: raidername
+--lRaiders: raidername
 --lList: raidername
 
---oLoot: itemid, dkp, winnername, lBid
+--tToBePres
+----key = raidername
+----val = timeout
 
---lBid: oBid
---oBid: raidername, ....TODO
+--oLoot: itemid, TODO: bid stuff
+
+
 
 
 --There are 3 types of functions: active, simulation and maintenance.
@@ -53,24 +59,23 @@
 ----sets oData.StartTime, oData.StopTime
 
 --(M) NewPlayer(name)
-----creates/adds a new oRaider to oData.tRaider
-
---(M) CleanupRaiderList()
-----removes oRaiders from oData.tRaider which have no entries in lRaidts or lListts
+----creates/adds a new oRaider to oData.tRaiders
 
 --(A/S) JoinRaid(name, timestamp), LeaveRaid(name, timestamp)
-----updates oData.tRaider[name].lRaidts,lListts
+----updates oData.tRaiders[name].lRaidts,lListts
 
 --(A/S) List(name, timestamp), Unlist(name, timestamp)
-----updates oData.tRaider[name].lListts
+----updates oData.tRaiders[name].lListts
 ----cannot be in list if in raid
 
 --(M) DeleteRaider(name)
-----cannot be deleted if they won loot (oLoot)
+----TODO: cannot be deleted if they won loot (oLoot)
 ----need to uncharge any dkp charged by oCharge or oBoss
-----wipes the oRaider at oData.tRaider[name]
+----wipes the oRaider at oData.tRaiders[name]
 
---(M) NewInstance(instancename)
+--(M) NewInstance(instancetype, instancename)
+----creates/adds an empty tBosses at oData.tInstanceType[instancetype][instancename]
+
 ----creates/adds an empty tBoss in oData.tInstance
 
 --(M) DeleteInstance(instancename)

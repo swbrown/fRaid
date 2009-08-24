@@ -78,7 +78,8 @@ end
 function fRaid.Raid.Stop()
 	if fRaid.Raid.IsTracking() then
 	    --stop tracking
-	    fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
+	    curraidobj:Stop()
+	    --fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
 		fRaid.Raid.StopProgressionDkpTimer()
 		
 		--save listed players who haven't been in the raid already
@@ -92,6 +93,7 @@ function fRaid.Raid.Stop()
 	    fRaid.db.global.Raid.LastModified = fLib.GetTimestamp()
 	    
 	    fRaid.db.global.Raid.CurrentRaid = nil
+	    curraidobj = nil
 	    
 	    fRaid:Print('Raid tracking stopped.')
 	    
