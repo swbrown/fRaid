@@ -107,8 +107,9 @@ function LIST.GetPlayer(name, createnew)
     end
     
     --make copy
-    local objcopy = {}
+    local objcopy = nil
     if obj then
+    	objcopy = {}
 	    for key,val in pairs(obj) do
 	        objcopy[key] = val
 	    end
@@ -472,14 +473,11 @@ local function raidobjcomparer(data1, data2)
 	local time2 = fRaid.db.global.Raid.RaidList[data2[1]][data2[2]].StartTime
 	return time1 < time2
 end
-function fRaid.Player.UpdateAttendance(numdays)
-	local x = fLib.GetTimestampObj()
-	local y = fLib.AddDays(x, -numdays)
-	local cutoff = fLib.GetTimestamp(y)
-	fRaid:Print("Calculating for raids after ", cutoff)
+function fRaid.Player.UpdateAttendance(numraids)
+	fRaid:Print("Calculating for the past "..numraids.." raids")
 	
 	--First, let's collect the raids w/in the last numdays
-	local temp = fRaid.Raid.GetSortedRaidList(cutoff)
+	local temp = fRaid.Raid.GetSortedRaidList(numraids)
 	
 	--Now, let's zero everyone's attendance
 	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
@@ -492,8 +490,8 @@ function fRaid.Player.UpdateAttendance(numdays)
 		totalraidcount = totalraidcount + 1
 		local owner = data[1]
 		local idx = data[2]
-		local raidobj = fRaid.db.global.Raid.RaidList[owner][idx]
-
+		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
+		--[[
 		for raidername, raiderobj in pairs(raidobj.RaiderList) do
 			local playerobj = fRaid.db.global.Player.PlayerList[raidername]
 			if playerobj then
@@ -507,8 +505,20 @@ function fRaid.Player.UpdateAttendance(numdays)
 				playerobj.attendance = playerobj.attendance + 1
 			end
 		end
+		--]]
+		local oRaid = fRaid.Raid.raidobj.new()
+		oRaid:Load(raiddata)
+		
+		for name, oRaider in pairs(oRaid.Data.RaiderList) do
+			if oRaid:Present(name) then
+				local playerobj = fRaid.db.global.Player.PlayerList[name]
+				if playerobj then
+					playerobj.attendance = playerobj.attendance + 1
+				end
+			end
+		end
 	end
-	fRaid:Print(totalraidcount, " raids in the past ", numdays, " days")
+	fRaid:Print(totalraidcount, " raids scanned")
 end
 
 function fRaid.Player.PrintAttendance(thresholdatt)

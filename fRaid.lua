@@ -93,6 +93,7 @@ local defaults = {
 		prefix = {
 			bid = 'bid',
 			dkp = 'dkp',
+			dkpcheckin = 'dkpcheck',
 		},
 		gui = {
 			x = 100, --relative to left
@@ -168,6 +169,11 @@ function addon:OnInitialize()
 	LibStub("AceConfig-3.0"):RegisterOptionsTable(NAME, options, {NAME})
 	self.BlizOptionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(NAME, NAME)
 	
+	fRaidBid:OnInitialize()
+	--fRaidMob:OnInitialize()
+	fRaid.Player.OnInitialize()
+	fRaid.Raid.OnInitialize()
+	
 	self:RegisterEvent("CHAT_MSG_WHISPER")
 	self:RegisterEvent('LOOT_OPENED')--, fRaidLoot.Scan)
 	self:RegisterEvent('CHAT_MSG_LOOT', fRaidBid.CHAT_MSG_LOOT)
@@ -195,11 +201,8 @@ function addon:OnInitialize()
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter2)
 	
-	fRaidBid:OnInitialize()
-	--fRaidMob:OnInitialize()
-	fRaid.Player.OnInitialize()
-	
-	self.ProgressionDkpTimer = self:ScheduleRepeatingTimer(fRaid.Raid.AwardProgressionDkp, 1800)
+	--self.UpdateTimer = self:ScheduleRepeatingTimer(self["TimeUp"], TIMER_INTERVAL, self)
+	--self.ProgressionDkpTimer = self:ScheduleRepeatingTimer(fRaid.Raid.AwardProgressionDkp, 1800)
 	
 	
 	self:Debug("<<OnInitialize>> end")
@@ -263,6 +266,14 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		end
 		
 		fRaid.Player.WhisperDkp(player, whispertarget)
+	elseif cmd == self.db.global.prefix.dkpcheckin then
+		local name = author
+		local idx = 0
+		if words[2] then
+			idx = tonumber(words[2])
+		end
+		
+		fRaid.Raid.DkpCheckin(idx, name)
 	end
 end
 
@@ -293,6 +304,10 @@ end
 function addon:RAID_ROSTER_UPDATE(...)
 	--print(...)
 	fRaid.Raid.RAID_ROSTER_UPDATE()
+end
+
+function addon:TimeUp()
+	fRaid.Raid.TimeUp()
 end
 
 --======================================================================================

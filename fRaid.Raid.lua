@@ -12,26 +12,52 @@ fRaid.Raid.IsInRaid = false
 local MYGUILD = GetGuildInfo('player')
 local curraidobj = nil
 
-function fRaid.Raid.IsTracking()
+local TIMER_INTERVAL = 300 --secs (5 minutes)
+
+function fRaid.Raid.OnInitialize()
+	fRaid:Debug("<<fRaid.Raid.OnInitialize>>")
 	if fRaid.db.global.Raid.CurrentRaid then
+		if not curraidobj then
+			curraidobj = fRaid.Raid.raidobj.new()
+			curraidobj:Load(fRaid.db.global.Raid.CurrentRaid)
+		end
+		curraidobj:UpdateRaiders()
+		curraidobj:UpdateListed()
+	end
+end
+
+function fRaid.Raid.TimeUp()
+	fRaid:Debug("<<fRaid.Raid.TimeUp>>")
+	fRaid.Raid.AwardProgressionDkp()
+	--curraidobj:UpdateRaiders()
+	curraidobj:UpdateListed()
+end
+
+function fRaid.Raid.IsTracking()
+	if curraidobj and fRaid.db.global.Raid.CurrentRaid then
 		return true
 	end
 	return false
 end
 
+function fRaid.Raid.GetRaidObj()
+	return curraidobj
+end
+
 function fRaid.Raid.RAID_ROSTER_UPDATE()
-    if fRaid.Raid.IsTracking() then --currently tracking a raid
-    	if not curraidobj then
-    		curraidobj = fRaid.Raid.raidobj.new()
-    		curraidobj:Load(fRaid.db.global.Raid.CurrentRaid)
-    	end
-    
+	fRaid:Debug("<<fRaid.Raid.RAID_ROSTER_UPDATE>>")
+    if fRaid.Raid.IsTracking() then --currently tracking a raid    
+    	--update current raiders
+    	curraidobj:UpdateRaiders()
+		--not updating listed b/c if they haven't been listed
+		--for a significant amount of time, they shouldn't get dkp
+		--so listed is getting updated every 5 minutes up at TimeUp
         if UnitInRaid('player') then
             --update attendance
-            fRaid.Raid.TrackRaiders()
+            --fRaid.Raid.TrackRaiders()
         else
             --ask if they want to stop tracking a raid
-            fRaid.Raid.TrackRaiders()
+            --fRaid.Raid.TrackRaiders()
             fRaid:ConfirmDialog2('Would you like to stop raid tracking?', fRaid.Raid.Stop)
             fRaid.Raid.IsInRaid = false
         end
@@ -57,19 +83,13 @@ function fRaid.Raid.Start()
         curraidobj:Start()
         fRaid.db.global.Raid.CurrentRaid = curraidobj.Data
         
-        --[[
-        fRaid.db.global.Raid.CurrentRaid = {}
+        curraidobj:UpdateRaiders()
+        curraidobj:UpdateListed()
         
-        fRaid.db.global.Raid.CurrentRaid.StartTime = fLib.GetTimestamp()
-        fRaid.db.global.Raid.CurrentRaid.Owner = UnitName('player')
+       	fRaid.Raid.UpdateTimer = fRaid:ScheduleRepeatingTimer(fRaid.Raid["TimeUp"], TIMER_INTERVAL)
+
         
-        fRaid.db.global.Raid.CurrentRaid.IsProgression = false
-        
-        fRaid.db.global.Raid.CurrentRaid.RaiderList = {}
-        fRaid.db.global.Raid.CurrentRaid.ListedPlayers = {}
-        --]]
-        
-        fRaid.Raid.TrackRaiders()
+        --fRaid.Raid.TrackRaiders()
         
         fRaid:Print('Raid tracking started.')
     end
@@ -78,12 +98,12 @@ end
 function fRaid.Raid.Stop()
 	if fRaid.Raid.IsTracking() then
 	    --stop tracking
+	    fRaid:CancelTimer(fRaid.Raid.UpdateTimer)
 	    curraidobj:Stop()
-	    --fRaid.db.global.Raid.CurrentRaid.EndTime = fLib.GetTimestamp()
 		fRaid.Raid.StopProgressionDkpTimer()
 		
 		--save listed players who haven't been in the raid already
-		fRaid.Raid.SaveListedPlayers()
+		--fRaid.Raid.SaveListedPlayers()
 		
 	    --archive CurrentRaid
 	    if not fRaid.db.global.Raid.RaidList[UnitName('player')] then
@@ -97,13 +117,23 @@ function fRaid.Raid.Stop()
 	    
 	    fRaid:Print('Raid tracking stopped.')
 	    
-	    --update attendance last 30 days
-	    fRaid.Player.UpdateAttendance(31)
+	    --update attendance last 32 raids
+	    fRaid.Player.UpdateAttendance(32)
 	else
 		fRaid:Print('No raid is being tracked.')
 	end
 end
 
+function fRaid.Raid.DkpCheckin(idx, name)
+	fRaid:Debug("<<fRaid.Raid.DkpCheckin>>")
+	if fRaid.Raid.IsTracking() then
+		curraidobj:UpdateDkpCharge(idx, name)
+	else
+		--TODO: whisper back that there's no raid being tracked
+		fRaid:Whisper(name, "No raid is currently being tracked.")
+	end
+end
+--[[
 function fRaid.Raid.SaveListedPlayers()
 	--save listed players who haven't been in the raid already
 	if fRaid.Raid.IsTracking() then
@@ -119,7 +149,8 @@ function fRaid.Raid.SaveListedPlayers()
 		fRaid:Print('No raid is being tracked.')
 	end
 end
-
+--]]
+--[[
 --track the raiders who have joined or left the raid
 function fRaid.Raid.TrackRaiders()
     --print('Tracking raiders...')
@@ -182,27 +213,35 @@ function fRaid.Raid.TrackRaiders()
     --check to see if the listed player was in the raider list
     --if they weren't, then keep t hem in listed players
 end
-
+--]]
 --should only be called by the scheduled timer
 function fRaid.Raid.AwardProgressionDkp()
 	if fRaid.Raid.IsTracking() and fRaid.db.global.Raid.IsAwardProgressionTimerOn then
-		fRaid.Player.AddDkpToRaid(5, true)
+		--check that its time for the next award
+		if curraidobj.Data.NextProgDkpAwarded and fLib.GetTimestamp() >= curraidobj.Data.NextProgDkpAwarded then
+			--award
+			--fRaid.Player.AddDkpToRaid(5, true)
+			curraidobj:AddDkpCharge(5)
+			--update NextProgDkpAwarded
+			curraidobj.Data.NextProgDkpAwarded = fLib.GetTimestamp(fLib.AddMinutes(nil, 30))
+		end
 	end
 end
 
 function fRaid.Raid.StartProgressionDkpTimer()
 	fRaid.db.global.Raid.IsAwardProgressionTimerOn = true
+	curraidobj.Data.NextProgDkpAwarded = fLib.GetTimestamp(fLib.AddMinutes(nil, 30))
 	fRaid:Print('Progression Dkp Timer started.')
 end
 
 function fRaid.Raid.StopProgressionDkpTimer()
 	 fRaid.db.global.Raid.IsAwardProgressionTimerOn = false
+	 curraidobj.Data.NextProgDkpAwarded = nil
 	 fRaid:Print('Progression Dkp Timer stopped.')
 end
 
 --returns a sorted list of {owner,idx}
-function fRaid.Raid.GetSortedRaidList(cutoff)
-	--updates a player's attendance based on the last numdays of raids
+function fRaid.Raid.GetSortedRaidList(max)
 	local function raidobjcomparer(data1, data2)
 		--data1/2 is a list containing owner and idx
 		local time1 = fRaid.db.global.Raid.RaidList[data1[1]][data1[2]].StartTime
@@ -213,101 +252,23 @@ function fRaid.Raid.GetSortedRaidList(cutoff)
 	local temp = {}
 	for owner, ownersection in pairs(fRaid.db.global.Raid.RaidList) do
 		for idx, raidobj in ipairs(ownersection) do
-			if not cutoff then
-				tinsert(temp, {owner, idx})
-			elseif raidobj.StartTime > cutoff then
-				tinsert(temp, {owner, idx})
-			end
+			tinsert(temp, {owner, idx})
 		end
 	end
 	
 	sort(temp, raidobjcomparer)
+	
+	if max and max > 0 then
+		while #temp > max do
+			tremove(temp, 1)
+		end
+	end
 	
 	return temp
 end
 
 ------------------------------
 --Raid Simulation Functions---
-
-function fRaid.Raid.CreateRaid(starttime, owner)
-	print('creating raid...')
-	local raid = {}
-	raid.StartTime = starttime
-	raid.Owner = owner
-	
-	raid.IsProgression = false
-	
-	raid.RaiderList = {}
-	raid.ListedPlayers = {}
-	
-	return raid
-end
-
-function fRaid.Raid.SaveRaid(raid, endtime, owner)
-	print('saving raid...')
-	--stop tracking
-	raid.EndTime = endtime
-	
-	--archive CurrentRaid
-	if not fRaid.db.global.Raid.RaidList[owner] then
-		fRaid.db.global.Raid.RaidList[owner] = {}
-	end
-	tinsert(fRaid.db.global.Raid.RaidList[owner], raid)
-	fRaid.db.global.Raid.LastModified = fLib.GetTimestamp()
-end
-
-function fRaid.Raid.SetRaiders(raid, time, raiderlist, listedlist)
-	print('setting raiders...')
-	local name, raiderobj, timestampobj
-	local newraiderlist = {}
-	
-	for idx,name in ipairs(raiderlist) do
-		print(idx,name)
-		raiderobj = raid.RaiderList[name]
-		if not raiderobj then
-			raiderobj = {
-				guild = '', --maybe they aren't in our guild
-				rank = '', --maybe their rank changes over time? so should remember what it was
-				timestamplist = {
-					{starttime = time}
-				}
-			}
-		end
-		
-		--update timestamp if they are rejoining raid
-		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
-		if timestampobj.endtime then
-			--create a new timestampobj
-				timestampobj = {
-				starttime = time
-			}
-			tinsert(raiderobj.timestamplist, timestampobj)
-		end
-		
-		newraiderlist[name] = raiderobj --add to new list
-		raid.RaiderList[name] = nil --remove from old list
-	end
-	
-	--track players that left
-	for name, raiderobj in pairs(raid.RaiderList) do
-		timestampobj = raiderobj.timestamplist[#raiderobj.timestamplist]
-		if not timestampobj.endtime then
-			timestampobj.endtime = time
-		end
-	
-		newraiderlist[name] = raiderobj
-		raid.RaiderList[name] = nil
-	end
-	
-	raid.RaiderList = newraiderlist
-	
-	--TODO: fill in listed players
-	--check to see if the listed player was in the raider list
-	--if they weren't, then keep t hem in listed players
-end
-
-
-
 
 --------------------------------------
 --------------------------------------
@@ -421,7 +382,12 @@ function fRaid.Raid.View()
     	ui:SetNumber(0)
     	ui:SetScript('OnEnterPressed', function() 
     		if this:GetNumber() > 0 then
-    			fRaid.Player.AddDkpToRaid(this:GetNumber(), true)
+    			--fRaid.Player.AddDkpToRaid(this:GetNumber(), true)
+    			if fRaid.Raid.IsTracking() then
+    				curraidobj:AddDkpCharge(this:GetNumber())
+    			else
+    				fRaid:Print("No raid is being tracked.")
+    			end
     		end
     		this:ClearFocus()
     		this:SetNumber(0)
