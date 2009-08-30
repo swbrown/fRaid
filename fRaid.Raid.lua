@@ -47,14 +47,12 @@ end
 function fRaid.Raid.RAID_ROSTER_UPDATE()
 	fRaid:Debug("<<fRaid.Raid.RAID_ROSTER_UPDATE>>")
     if fRaid.Raid.IsTracking() then --currently tracking a raid    
-    	--update current raiders
-    	curraidobj:UpdateRaiders()
-		--not updating listed b/c if they haven't been listed
-		--for a significant amount of time, they shouldn't get dkp
-		--so listed is getting updated every 5 minutes up at TimeUp
         if UnitInRaid('player') then
-            --update attendance
-            --fRaid.Raid.TrackRaiders()
+            --update current raiders
+            curraidobj:UpdateRaiders()
+            --not updating listed b/c if they haven't been listed
+            --for a significant amount of time, they shouldn't get dkp
+            --so listed is getting updated every 5 minutes up at TimeUp
         else
             --ask if they want to stop tracking a raid
             --fRaid.Raid.TrackRaiders()

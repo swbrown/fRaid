@@ -147,8 +147,8 @@ function myfuncs.Stop(self, timestamp)
 	
 	--leave all raiders, unlist all raiders
 	for name, oRaider in pairs(self.Data.RaiderList) do
-		self:LeaveRaid(name)
-		self:UnList(name)
+		self:LeaveRaid(name, nil, true)
+		self:UnList(name, nil, true)
 	end
 end
 
@@ -528,8 +528,8 @@ function myfuncs.RemoveDkpCharge(self, idx)
 		end
 		
 		--wipe and set to nil
-		wipe(oCharge)
 		tremove(self.Data.lDkpCharges, idx)
+		wipe(oCharge)
 	else
 		fRaid:Print("Invalid index to lDkpCharges[idx].")
 	end
