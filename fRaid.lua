@@ -12,6 +12,7 @@ local NAME = 'fRaid'
 local DBNAME = 'fRaidDB'
 local MYNAME = UnitName('player')
 local db = {}
+--local TIMER_INTERVAL = 300 --secs == 5 minutes
 
 local options = {
 	type='group',
@@ -200,10 +201,6 @@ function addon:OnInitialize()
 	
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter2)
-	
-	--self.UpdateTimer = self:ScheduleRepeatingTimer(self["TimeUp"], TIMER_INTERVAL, self)
-	--self.ProgressionDkpTimer = self:ScheduleRepeatingTimer(fRaid.Raid.AwardProgressionDkp, 1800)
-	
 	
 	self:Debug("<<OnInitialize>> end")
 end

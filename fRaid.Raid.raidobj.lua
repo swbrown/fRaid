@@ -402,18 +402,16 @@ end
 --(A/S) AddDkpCharge(amount, timestamp)
 ----creates/adds an oCharge to oData.lDkpCharges
 ----charge dkp to raid/listed
-----if this is a simulation, provite timestamp and lListPresent
+----if this is a simulation, provide timestamp and lListPresent
 ----lListPreset is a list of names that get automatically moved to lListed from lToBeP
 function myfuncs.AddDkpCharge(self, amount, timestamp, lListPresent)
 	fRaid:Debug("<<raidobj.AddDkpCharge>>", amount)
 	local timeout
 	if not timestamp then
-		local tso = fLib.GetTimestampObj()
-		timestamp = fLib.GetTimestamp(tso)
-		tso = fLib.AddMinutes(tso, 5)
+		local tso = fLib.AddMinutes(nil, 5)
 		timeout = fLib.GetTimestamp(tso)
 	else
-		timeout = timestamp
+		timeout = timestamp --for simulation timeout is ignored
 	end
 
 	if amount == 0 then
@@ -447,7 +445,7 @@ function myfuncs.AddDkpCharge(self, amount, timestamp, lListPresent)
 	local idx = #self.Data.lDkpCharges
 	local listeddkp = oCharge.dkp/2
 	
-	--TODO: whisper lToBeP that they need to whisper you back for dkp
+	--whisper lToBeP that they need to whisper you back for dkp
 	for _, name in ipairs(oCharge.lToBeP) do
 		fRaid:Whisper(name, "You have been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx)
 		--check if they have an alt

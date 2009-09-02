@@ -12,7 +12,7 @@ fRaid.Raid.IsInRaid = false
 local MYGUILD = GetGuildInfo('player')
 local curraidobj = nil
 
-local TIMER_INTERVAL = 300 --secs (5 minutes)
+
 
 function fRaid.Raid.OnInitialize()
 	fRaid:Debug("<<fRaid.Raid.OnInitialize>>")
@@ -26,11 +26,21 @@ function fRaid.Raid.OnInitialize()
 	end
 end
 
+local TIMER_INTERVAL = 300 --secs (5 minutes)
+--this runs every 5 minutes
+--it awards progression dkp (if its on)
+--it checks who's listed and updates our list of listed peeps
+--since this only runs every 5 minutes, a consequence is that
+----people who list < 5 minutes before a boss kill or progression
+----dkp awarding will not get dkp, but that's okay, in fact
+----that's a good thing
 function fRaid.Raid.TimeUp()
 	fRaid:Debug("<<fRaid.Raid.TimeUp>>")
-	fRaid.Raid.AwardProgressionDkp()
-	--curraidobj:UpdateRaiders()
-	curraidobj:UpdateListed()
+	if fRaid.Raid.IsTracking() then
+		fRaid.Raid.AwardProgressionDkp()
+		--curraidobj:UpdateRaiders()
+		curraidobj:UpdateListed()
+	end
 end
 
 function fRaid.Raid.IsTracking()
@@ -84,7 +94,7 @@ function fRaid.Raid.Start()
         curraidobj:UpdateRaiders()
         curraidobj:UpdateListed()
         
-       	fRaid.Raid.UpdateTimer = fRaid:ScheduleRepeatingTimer(fRaid.Raid["TimeUp"], TIMER_INTERVAL)
+       	fRaid.Raid.UpdateTimer = fRaid:ScheduleRepeatingTimer(fRaid.Raid.TimeUp, TIMER_INTERVAL)
 
         
         --fRaid.Raid.TrackRaiders()
