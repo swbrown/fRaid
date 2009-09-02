@@ -408,6 +408,7 @@ function myfuncs.AddDkpCharge(self, amount, timestamp, lListPresent)
 	fRaid:Debug("<<raidobj.AddDkpCharge>>", amount)
 	local timeout
 	if not timestamp then
+		timestamp = fLib.GetTimestamp()
 		local tso = fLib.AddMinutes(nil, 5)
 		timeout = fLib.GetTimestamp(tso)
 	else
