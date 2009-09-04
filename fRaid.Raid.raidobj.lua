@@ -473,7 +473,7 @@ function myfuncs.UpdateDkpCharge(self, idx, name)
 		if not i then
 			--check alt
 			alt = name
-			local nametest = fList.GetPlayerFromAlt(alt)
+			local nametest = fLib:Capitalize(fList.GetPlayerFromAlt(alt))
 			i = fLib.ExistsInList(oCharge.lToBeP, nametest)
 			if i then
 				name =  nametest
@@ -491,7 +491,7 @@ function myfuncs.UpdateDkpCharge(self, idx, name)
 				end
 			else
 				fRaid:Whisper(name, "Your listed dkp has expired.")
-				fRaid:Whisper(alt, "Your listed dkp has expired.")
+				if alt then fRaid:Whisper(alt, "Your listed dkp has expired.") end
 			end
 		else
 			fRaid:Whisper(name, "You have no listed dkp for number "..idx)
@@ -565,12 +565,6 @@ function myfuncs.UpdateRaiders(self)
 			tCurrent[name] = {gname, grank}
 		end
 	end
-
-	fRaid:Debug("<<raidobj.UpdateRaiders>> foundinraid:")
-	for name, info in pairs(tCurrent) do
-		fRaid:Debug(name)
-	end
-	
 
 	--check existing raiders
 	for name, oRaider in pairs(self.Data.RaiderList) do

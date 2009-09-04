@@ -303,10 +303,6 @@ function addon:RAID_ROSTER_UPDATE(...)
 	fRaid.Raid.RAID_ROSTER_UPDATE()
 end
 
-function addon:TimeUp()
-	fRaid.Raid.TimeUp()
-end
-
 --======================================================================================
 --Functions
 function addon.GetBidPrefix()

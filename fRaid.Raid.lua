@@ -12,7 +12,7 @@ fRaid.Raid.IsInRaid = false
 local MYGUILD = GetGuildInfo('player')
 local curraidobj = nil
 
-
+local TIMER_INTERVAL = 300 --secs (5 minutes)
 
 function fRaid.Raid.OnInitialize()
 	fRaid:Debug("<<fRaid.Raid.OnInitialize>>")
@@ -21,12 +21,15 @@ function fRaid.Raid.OnInitialize()
 			curraidobj = fRaid.Raid.raidobj.new()
 			curraidobj:Load(fRaid.db.global.Raid.CurrentRaid)
 		end
-		curraidobj:UpdateRaiders()
-		curraidobj:UpdateListed()
+		--curraidobj:UpdateRaiders()
+		--curraidobj:UpdateListed()
+		
+		if not fRaid.Raid.UpdateTimer then
+			fRaid.Raid.UpdateTimer = fRaid:ScheduleRepeatingTimer(fRaid.Raid.TimeUp, TIMER_INTERVAL)
+		end
 	end
 end
 
-local TIMER_INTERVAL = 300 --secs (5 minutes)
 --this runs every 5 minutes
 --it awards progression dkp (if its on)
 --it checks who's listed and updates our list of listed peeps
@@ -70,7 +73,9 @@ function fRaid.Raid.RAID_ROSTER_UPDATE()
             fRaid.Raid.IsInRaid = false
         end
     else
+    	fRaid:Debug("fRaid.Raid.RAID_ROSTER_UPDATE", 'not tracking')
         if UnitInRaid('player') then
+        	fRaid:Debug("fRaid.Raid.RAID_ROSTER_UPDATE", 'UNIT IN RAID')
             if not fRaid.Raid.IsInRaid then --only the first time join raid
                 --ask if they want to start tracking a raid
                 fRaid:ConfirmDialog2('Would you like to start raid tracking?', fRaid.Raid.Start)
