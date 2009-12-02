@@ -330,6 +330,15 @@ end
 
 --===========================================================================================
 
+function fRaid.Player.DeletePlayer(name)
+    fRaid:ConfirmDialog2('Are you sure you want to remove ' .. name .. '?', fRaid.Player.DeletePlayerHandler, name)
+end
+function fRaid.Player.DeletePlayerHandler(name)
+    LIST.DeletePlayer(name)
+    fRaid:Print('Deleted ' .. name)
+    fRaid.GUI2.PlayerFrame:Refresh()
+end
+
 --Add dkp to a player
 --amount can be a positive or negative value
 function fRaid.Player.AddDkp(name, amount, note)
@@ -379,14 +388,7 @@ function fRaid.Player.AddDkp(name, amount, note)
     fRaid:Whisper(name, msg)
 end
 
-function fRaid.Player.DeletePlayer(name)
-    fRaid:ConfirmDialog2('Are you sure you want to remove ' .. name .. '?', fRaid.Player.DeletePlayerHandler, name)
-end
-function fRaid.Player.DeletePlayerHandler(name)
-    LIST.DeletePlayer(name)
-    fRaid:Print('Deleted ' .. name)
-    fRaid.GUI2.PlayerFrame:Refresh()
-end
+
 
 --mainlist and halflist should be a list of names
 function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
@@ -406,6 +408,10 @@ function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
 	for idx,name in ipairs(halflist) do
 		fRaid.Player.AddDkp(name, amount/2, note)
 	end
+end
+
+function fRaid.Player.CalculateDkpDecay(dkp, attendancepercent)
+
 end
 
 --updates each player's guild rank if they are in the guild
@@ -457,7 +463,7 @@ function fRaid.Player.UpdateRankByAttendance()
 end
 function fRaid.Player.UpdateRankByAttendanceComplete()
 	fRaid:Print("Update guild ranks by attendance complete.")
-	fRAid.Player.UpdateRank()
+	fRaid.Player.UpdateRank()
 end
 
 --updates each player's class if they are in the guild
@@ -574,6 +580,12 @@ function fRaid.Player.PrintAttendance(channel, minpercent)
 		str = str .. "]"
 		fLib.Com.Special(str, channel)
 	end
+end
+
+function fRaid.Player.WhisperCommand(cmd, whispertarget)
+	cmd = strlower(strtrim(cmd))
+	
+	
 end
 
 --cmd is a player name or TODO: one of the keywords
