@@ -411,7 +411,7 @@ function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
 end
 
 function fRaid.Player.CalculateDkpDecay(dkp, attendancepercent)
-
+--addy
 end
 
 --updates each player's guild rank if they are in the guild
