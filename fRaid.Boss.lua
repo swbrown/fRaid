@@ -188,7 +188,6 @@ function fRaid.Boss.View()
 		mf.eb_dkpaward:SetNumber(0)
 		mf.eb_dkpaward:SetScript('OnEnterPressed', function() 
 			if this:GetNumber() > 0 then
-				--fRaidPlayer:AddDKPToRaid(eb_dkpaward:GetNumber())
 				--save the dkp for this boss
 			end
 			this:ClearFocus()

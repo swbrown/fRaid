@@ -18,6 +18,7 @@
 --  possible actions: new, delete, dkp, blacklisted, unblacklisted
 --fRaid.db.global.Player.Count
 --fRaid.db.global.Player.LastModified
+--fRaid.db.global.Player.AttendanceTotal
 --fRaid.GUI2.PlayerFrame
 
 fRaid.Player = {}
@@ -29,11 +30,6 @@ function fRaid.Player.OnInitialize()
     if not fRaid.db.global.Player.ChangeList[UnitName('player')] then
         fRaid.db.global.Player.ChangeList[UnitName('player')] = {}
     end
-end
-
---TODO: find out info about name, class, guild, online
-function fRaid.Player.Scan(name)
-
 end
 
 --===================================================================================
@@ -48,9 +44,6 @@ local function createplayerobj()
 	    class = '',
 	    rank = '',
 	    role = '', --dps, heal, tank?
-	    attrank1 = '',
-	    attrank2 = '',
-	    pretendrank = '',
     }
     
     return obj
@@ -185,40 +178,142 @@ end
 
 --recalculates all player's dkp based on all the events logged in the ChangeList
 function LIST.RecalculateDkp()
-    local newList = {}
-    local name, obj, diff
-    local latesttimestamp = '-1'
-    for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
-        for idx, change in ipairs(changelist) do
-            --get/create name
-            name = change[1]
-            obj = newList[name]
-            if not obj then
-                obj = createplayerobj()
-                newList[name] = obj
-            end
-        
-            if change[2] == 'delete' then
-                --TODO: how to handle this?...
-                --what if user A deletes player, then later user B adds dkp to that player?
-                --hmm.. maybe save a delete change as zeroing out someone's dkp?
-            elseif change[2] == 'dkp' then
-                --calculate difference
-                diff = change[6] - change[5]
-                obj.dkp = obj.dkp + diff
-            end
-            
-            if change[4] > latesttimestamp then
-                latesttimestamp = change[4]
-            end
-        end
-    end
+	local nametodkp, latesttimestamp = LIST.CalculateDkp()
+	
+	local newdkp
+	for name, obj in pairs(fRaid.db.global.Player.PlayerList) do
+		newdkp = nametodkp[name]
+		if not newdkp then
+			if obj.dkp ~= 0 then
+				fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = 0")
+				obj.dkp = 0
+			end
+		elseif newdkp ~= obj.dkp then
+			fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = " .. newdkp)
+			obj.dkp = newdkp
+		end
+		nametodkp[name] = nil
+	end
+	for name, dkp in pairs(nametodkp) do
+		fRaid:Print("Missing: " .. name .. " calculated dkp = " .. dkp)
+		local obj = createplayerobj()
+		obj.dkp = dkp
+		fRaid.db.global.Player.PlayerList[name] = obj
+	end
+	fRaid.db.global.Player.LastModified = latesttimestamp
     
-    wipe(fRaid.db.global.Player.PlayerList)
-    fRaid.db.global.Player.PlayerList = newList
-    fRaid.db.global.Player.LastModified = latesttimestamp
-    
-    fRaid:Print('Player List recalculated. ' .. LIST.Count(true) .. ' found.')
+    fRaid:Print('Recalculate Dkp Complete.')
+end
+
+function LIST.RecalculateDkpTest()
+	local nametodkp = LIST.CalculateDkp()
+	
+	local newdkp
+	for name, obj in pairs(fRaid.db.global.Player.PlayerList) do
+		newdkp = nametodkp[name]
+		if not newdkp then
+			if obj.dkp ~= 0 then
+				fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = 0")
+			end
+		elseif newdkp ~= obj.dkp then
+			fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = " .. newdkp)
+		end
+		nametodkp[name] = nil
+	end
+	for name, dkp in pairs(nametodkp) do
+		fRaid:Print("Missing: " .. name .. " calculated dkp = " .. dkp)
+	end
+	
+	fRaid:Print('Recalculate Dkp Test Complete.')
+end
+
+--calculates player's dkp at capdate
+--player's with 0 dkp are omitted
+--returns table nametodkp and latesttimestamp
+function LIST.CalculateDkp(capdate)
+	if not capdate then
+		capdate = fLib.GetTimestamp()
+	end
+	
+	local nametodkp = {}
+	local latesttimestamp = '-1'
+	local name, dkp, diff
+	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
+		for idx, change in ipairs(changelist) do
+			if change[4] <= capdate then
+				if change[2] == 'dkp' then
+					name = change[1]
+					dkp = nametodkp[name]
+					if not dkp then
+						dkp = 0
+					end
+					diff = change[6] - change[5]
+					nametodkp[name] = dkp + diff
+					
+					if change[4] > latesttimestamp then
+						latesttimestamp = change[4]
+					end
+				end
+			end
+		end
+	end
+		
+	--erase the names that have 0 dkp
+	for name, dkp in pairs(nametodkp) do
+		if dkp == 0 then
+		nametodkp[name] = nil
+		end
+	end
+	
+	return nametodkp, latesttimestamp
+end
+
+--removes 'dkp' entries in the changelist older than 40 days
+--updates Purge Data: purge date cap and purge start entries
+function LIST.Purge()
+	--calculate the purge date cap
+	local obj = fLib.GetTimestampObj()
+	obj = fLib.AddDays(obj, -40)
+	local purgedatecap = fLib.GetTimestamp(obj)
+	
+	--create new purge start entries
+	local nametodkp = LIST.CalculateDkp(purgedatecap)
+	local newpurgestartentries = {}
+	for name, dkp in pairs(nametodkp) do
+		tinsert(newpurgestartentries, {name, 'dkp', 'purgestart', purgedatecap, 0, dkp})
+	end
+	
+	--remove old changelist entries
+	local entry
+	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
+		if user ~= 'Purge' then
+			fRaid:Print("Purging " .. user .. "'s changelist...")
+			local count = 0
+			local i = 1
+			while i ~= 0 do
+				entry = changelist[i]
+				if entry then
+					if entry[4] <= purgedatecap and entry[2] == 'dkp' then
+						tremove(changelist, i)
+						count = count + 1
+					else
+						i = i + 1
+					end
+				else
+					i = 0
+				end
+			end
+			fRaid:Print(count " entries purged.")
+		end
+	end
+
+	--replace old purge start entries
+	fRaid.db.global.Player.ChangeList.Purge = newpurgestartentries
+	
+	--save purge date cap
+	fRaid.db.global.Player.ChangeList.Purge.datecap = purgedatecap
+	
+	fRaid:Print("Purge complete.  Run LIST.RecalculateDkpTest() to verify dkp.")
 end
 
 function LIST.RefreshGuildInfo()
@@ -231,128 +326,6 @@ function LIST.RefreshGuildInfo()
 			data.rank = ''
 		end
 	end
-end
-
-function LIST.CompareDkpList(t1, t2)
-    local extrat1names = {}
-    local extrat2names = {}
-    local data2
-    
-    for name, data in pairs(t1) do
-        if not t2[name] then
-            tinsert(extrat1names, name)
-        else
-            data2 = t2[name]
-            if data.dkp == data2.dkp then
-                fRaid:Print('match ', name)
-            else
-                fRaid:Print('NOT match ', name .. ':' .. data.dkp .. ',' .. data2.dkp)
-            end
-        end
-    end
-    for name, data in pairs(t2) do
-        if not t1[name] then
-            tinsert(extrat2names, name)
-        end
-    end
-    
-    if #extrat1names > 0 then
-        fRaid:Print('extra names in 1st list: ', unpack(extrat1names))
-    end
-    if #extrat2names > 0 then
-        fRaid:Print('extra names in 2nd list: ', unpack(extrat2names))
-    end
-end
-
-function fRaid.Player.MergeChangeLists(l1, l2)
-    --merge changelists...
-    
-    --compile complete user list
-    local names = {}
-    for name, data in pairs(l1) do
-        names[name] = true
-    end
-    
-    for name, data in pairs(l2) do
-        names[name] = true
-    end
-    
-    local l11, l22
-    local i11, i22
-    local r11, r22
-    
-    local keepgoing = true
-    local keepgoingi = 1
-    local keepgoinglimit = 10000
-    
-    local stoppedmatching = false
-    
-    for name, _ in pairs(names) do
-        print('scanning ' .. name)
-        l11 = l1[name]
-        l22 = l2[name]
-    
-        if not l11 or not l22 then
-            if l11 then
-                l2[name] = l11
-            elseif l22 then
-                l1[name] = l22
-            end
-        else
-            i11 = 1
-            i22 = 1
-            keepgoing = true
-            keepgoingi = 1
-            while keepgoing do
-                r11 = l11[i11]
-                r22 = l22[i22]
-    
-                if not r11 or not r22 then
-                    if r11 then
-                        tinsert(l22, r11)
-                        i11 = i11 + 1
-                        i22 = i22 + 1
-                    elseif r22 then
-                        tinsert(l11, r22)
-                        i11 = i11 + 1
-                        i22 = i22 + 1
-                    else
-                        keepgoing = false
-                        print('l11 ended at i11 = ' .. i11)
-                        print('l22 ended at i22 = ' .. i22)
-                    end
-                else
-                    if r11[4] == r22[4] then
-                        if stoppedmatching then
-                            stoppedmatching = false
-                            print('resumed matching at i11 = ' .. i11 .. ', ' .. 'i22 = ' .. i22)
-                        end
-                        i11 = i11 + 1
-                        i22 = i22 + 1
-                    else
-                        if not stoppedmatching then
-                            stoppedmatching = true
-                            print('stopped matching at i11 = ' .. i11 .. ', ' .. 'i22 = ' .. i22)
-                        end
-                        if r11[4] < r22[4] then
-                            tinsert(l22, i22, r11)
-                        else
-                            tinsert(l11, i11, r22)
-                        end
-                    end
-                end
-    
-                keepgoingi = keepgoingi + 1
-                if keepgoingi > keepgoinglimit then
-                    keepgoing = false
-                end
-            end
-        end
-    end
-end
-
-function fRaid.Player.CollapseChangeLists()
-
 end
 
 --===========================================================================================
@@ -415,37 +388,6 @@ function fRaid.Player.DeletePlayerHandler(name)
     fRaid.GUI2.PlayerFrame:Refresh()
 end
 
-function fRaid.Player.AddDkpToRaid(amount, includelistedplayers)
-    if not amount then
-        fRaid:Print('ERROR: missing arg1 amount')
-        return
-    end
-    if type(amount) ~= 'number' then
-        fRaid:Print("ERROR: bad type arg1 needs to be a number")
-        return
-    end
-    
-    local name
-    for i = 1, GetNumRaidMembers() do
-        name = GetRaidRosterInfo(i)
-        if name then
-            fRaid.Player.AddDkp(name, amount, 'bosskill')
-        end
-    end
-    
-    fRaid:Print('COMPLETE: ' .. amount .. ' DKP added to raid')
-    
-    if includelistedplayers then
-        if fList and fList.CURRENTLIST.IsListOpen() then
-            for idx, info in ipairs(fList.CURRENTLIST.GetPlayers()) do
-                name = info.name
-                fRaid.Player.AddDkp(name, amount/2)
-            end
-        end
-        fRaid:Print('COMPLETE: ' .. amount/2 .. ' DKP added to waitlist')
-    end
-end
-
 --mainlist and halflist should be a list of names
 function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
 	if not amount then
@@ -466,13 +408,71 @@ function fRaid.Player.AddDkpToPlayers(amount, note, mainlist, halflist)
 	end
 end
 
---updates a player's attendance based on the last numdays of raids
-local function raidobjcomparer(data1, data2)
-	--data1/2 is a list containing owner and idx
-	local time1 = fRaid.db.global.Raid.RaidList[data1[1]][data1[2]].StartTime
-	local time2 = fRaid.db.global.Raid.RaidList[data2[1]][data2[2]].StartTime
-	return time1 < time2
+--updates each player's guild rank if they are in the guild
+--otherwise they will have no rank
+function fRaid.Player.UpdateRank()
+	--Erase rank then try to get from fLib.Guild
+	local ginfo
+	for playername, obj in pairs(fRaid.db.global.Player.PlayerList) do
+		obj.rank = ""
+		
+		ginfo = fLib.Guild.GetInfo(playername)
+		if ginfo and ginfo.rank then
+			obj.rank = ginfo.rank
+		end
+	end
+	
+	fRaid:Print("Update rank complete.")
 end
+
+--promote or demotes players based on their raid attendance
+function fRaid.Player.UpdateRankByAttendance()
+	--Scan thru each guild member and update their rank based on attendance
+	local playerobj, percent
+	for name, info in pairs(fLib.Guild.Roster) do
+		--fRaid:Print("Updating " .. name)
+		
+		--retrieve data to calculate percent attendance
+		playerobj = fRaid.db.global.Player.PlayerList[name]
+		if playerobj then
+			percent = fRaid.Player.GetAttendancePercent(name)
+		else
+			percent = 0
+		end
+		
+		--if < 75% demote only if they are Raider
+		--if >= 75% promote only if they are Member
+		if percent < 75 and info.rank == "Raider" then
+			--demote them
+			fRaid:Print(name .. " queued for demotion.")
+			fLib.Guild.Demote(name)
+		elseif percent >= 75 and info.rank == "Member" then
+			--promote them
+			fRaid:Print(name .. " queued for promotion.")
+			fLib.Guild.Promote(name)
+		end
+	end
+	
+	fLib.Guild.ConfirmMotions(fRaid.Player.UpdateRankByAttendanceComplete)
+end
+function fRaid.Player.UpdateRankByAttendanceComplete()
+	fRaid:Print("Update guild ranks by attendance complete.")
+	fRAid.Player.UpdateRank()
+end
+
+--updates each player's class if they are in the guild
+function fRaid.Player.UpdateClass()
+	--try to get class from fLib.Guild
+	local ginfo
+	for playername, obj in pairs(fRaid.db.global.Player.PlayerList) do
+		ginfo = fLib.Guild.GetInfo(playername)
+		if ginfo and ginfo.class then
+			obj.class = ginfo.class
+		end
+	end
+end
+
+--updates each player's attendance based on the last numraids
 function fRaid.Player.UpdateAttendance(numraids)
 	fRaid:Print("Calculating for the past "..numraids.." raids")
 	
@@ -491,21 +491,6 @@ function fRaid.Player.UpdateAttendance(numraids)
 		local owner = data[1]
 		local idx = data[2]
 		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
-		--[[
-		for raidername, raiderobj in pairs(raidobj.RaiderList) do
-			local playerobj = fRaid.db.global.Player.PlayerList[raidername]
-			if playerobj then
-				playerobj.attendance = playerobj.attendance + 1
-			end
-		end
-		
-		for idx, raidername in ipairs(raidobj.ListedPlayers) do
-			local playerobj = fRaid.db.global.Player.PlayerList[raidername]
-			if playerobj then
-				playerobj.attendance = playerobj.attendance + 1
-			end
-		end
-		--]]
 		local oRaid = fRaid.Raid.raidobj.new()
 		oRaid:Load(raiddata)
 		
@@ -518,14 +503,34 @@ function fRaid.Player.UpdateAttendance(numraids)
 			end
 		end
 	end
+	fRaid.db.global.Player.AttendanceTotal = totalraidcount
 	fRaid:Print(totalraidcount, " raids scanned")
 end
 
-function fRaid.Player.PrintAttendance(thresholdatt)
-	if not thresholdatt then
-		thresholdatt = 0
+function fRaid.Player.GetAttendancePercent(playername)
+	local playerobj = fRaid.db.global.Player.PlayerList[playername]
+	if playerobj.attendance and playerobj.attendance > 0 and fRaid.db.global.Player.AttendanceTotal > 0 then
+		return floor(playerobj.attendance / fRaid.db.global.Player.AttendanceTotal * 100)
+	else
+		return 0
 	end
+end
 
+function fRaid.Player.PrintAttendance(channel, minpercent)
+	if not channel then
+		channel = "OFFICER"
+	end
+	
+	if not minpercent then
+		minpercent = 0
+	end
+	
+	if minpercent > 100 then
+		minpercent = 100
+	end
+	
+	local minraids = floor(minpercent * fRaid.db.global.Player.AttendanceTotal / 100)
+	
 	local function sortfunc(name1, name2)
 		local ret = name1 < name2
 		local att1 = fRaid.db.global.Player.PlayerList[name1].attendance
@@ -537,15 +542,37 @@ function fRaid.Player.PrintAttendance(thresholdatt)
 	end
 	local temp = {}
 	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
-		--fRaid:Print(playername, playerobj.attendance)
-		if playerobj.attendance >= thresholdatt then
+		if playerobj.attendance >= minraids then
 			tinsert(temp, playername)
 		end
 	end
 	sort(temp, sortfunc)
 	
+	local str = "Attendance " ..  fRaid.db.global.Player.AttendanceTotal .. " raids: "
+	fLib.Com.Special(str, channel)
+	str = ""
+	
+	local percent = 0
+	local lastpercent = -1
 	for _, playername in ipairs(temp) do
-		fRaid:Print(playername, fRaid.db.global.Player.PlayerList[playername].attendance)
+		percent = floor(fRaid.db.global.Player.PlayerList[playername].attendance / fRaid.db.global.Player.AttendanceTotal * 100)
+	
+		if (percent ~= lastpercent) then
+			if lastpercent ~= -1 then
+				str = str .. "]"
+				fLib.Com.Special(str, channel)
+				str = ""
+			end
+			str = str .. percent .. "%[" .. playername
+			lastpercent = percent
+		else
+			str = str .. "," .. playername
+		end
+	end
+	
+	if str ~= "" then
+		str = str .. "]"
+		fLib.Com.Special(str, channel)
 	end
 end
 
@@ -595,10 +622,24 @@ function fRaid.Player.Find(name, cutoff)
 			if change[1] == name then
 				if cutoff then
 					if change[4] >= cutoff then
-						fRaid:Print(user, change[2], change[3], change[4], change[5])
+						fRaid:Print(user, "action:"..change[2], "note:"..change[3], "date:"..change[4], "start:"..change[5], "diff:"..change[6]-change[5], "end:"..change[6])
 					end
 				else
-					fRaid:Print(user, change[2], change[3], change[4], change[5])
+					fRaid:Print(user, "action:"..change[2], "note:"..change[3], "date:"..change[4], "start:"..change[5], "diff:"..change[6]-change[5], "end:"..change[6])
+				end
+			end
+		end
+	end
+end
+
+function fRaid.Player.FindDiff(name, charge)
+	local diff = 0
+	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
+		for idx, change in ipairs(changelist) do
+			if change[1] == name then
+				diff = change[6]-change[5]
+				if diff == charge then
+					fRaid:Print(user, "action:"..change[2], "note:"..change[3], "date:"..change[4], "start:"..change[5], "diff:"..change[6]-change[5], "end:"..change[6])
 				end
 			end
 		end
@@ -607,238 +648,256 @@ end
 
 --==================================================================================================
 
+local function CreatePlayerFrame()
+	local mf = fRaid.GUI2.PlayerFrame
+	
+	--create index table
+	mf.index_to_name = {}
+	mf.lastmodified = 0 --keeps track of fRaid.db.global.Player.LastModified
+	
+	--variables to keep track of sorting
+	mf.sortdirty = true
+    mf.sortkeeper = {
+        {asc = false, issorted = false, name = 'Name'},
+        {asc = false, issorted = false, name = 'Dkp'},
+        {asc = false, issorted = false, name = 'Rank'},
+        {asc = false, issorted = false, name = 'Role'},
+        {asc = false, issorted = false, name = 'Att'},
+        {asc = false, issorted = false, name = 'Prog'},
+        {asc = false, issorted = false, name = 'Id'}
+    }
+    
+	mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 6)
+	
+	--refreshes the index table from the PlayerList
+	function mf:RefreshIndex(force)
+        if self.lastmodified ~= fRaid.db.global.Player.LastModified or force then
+            --print('Refreshing index...')
+            table.wipe(self.index_to_name)
+            self.lastmodified = fRaid.db.global.Player.LastModified
+            
+            for name,data in pairs(fRaid.db.global.Player.PlayerList) do
+                tinsert(self.index_to_name, name)
+            end
+            
+            local max = #self.index_to_name - self.table.rowcount + 1
+            if max < 1 then
+                max = 1
+            end
+            self.table.slider:SetMinMaxValues(1, max)
+            self:ResetSort()
+        end
+    end
+    
+    --retrieves data from the PlayerList for the player name at index
+	function mf:RetrieveData(index)
+	    local name, data
+	    if not index or index < 1 then
+	        index = self.table.selectedindex
+	    end
+	    
+	    name = self.index_to_name[index]
+	    data = fRaid.db.global.Player.PlayerList[name]
+	    
+	    return name, data
+	end
+    
+    function mf:ResetSort()
+	    self.sortdirty = true
+	    for idx,keeper in ipairs(self.sortkeeper) do
+	    	keeper.issorted = false
+	    end
+    end
+    
+    --click on a header
+    function mf:ClickHeader()
+    	mf.sortdirty = true
+        self:Sort()
+        self:LoadRows()
+    end
+    
+    --click on a row
+    function mf:ClickRow()
+        self:RefreshDetails()
+    end
+    
+    --scroll
+    function mf:Scroll()
+        self:LoadRows()
+    end
+    
+    
+    function mf.lootcomparer(a, b) --a and b are names (key for PlayerList)
+        --retrieve data
+        local adata = fRaid.db.global.Player.PlayerList[a]
+        local bdata = fRaid.db.global.Player.PlayerList[b]
+        
+        --find the sorted column and how it is sorted
+        local SORT = mf.table.selectedcolnum
+        local SORT_ASC = mf.sortkeeper[SORT].asc
+        local SORT_NAME = mf.sortkeeper[SORT].name
+        
+        local ret = true
+        
+        if SORT_NAME == 'Rank' then
+        	if adata.rank == bdata.rank then
+        		ret = a > b
+        	else
+        		ret = adata.rank > bdata.rank
+        	end
+        elseif SORT_NAME == 'Dkp' then
+            if adata.dkp == bdata.dkp then
+                ret = a > b
+            else
+                ret = adata.dkp < bdata.dkp
+            end
+        elseif SORT_NAME == 'Att' then
+        	if adata.attendance == bdata.attendance then
+        		ret = a > b
+        	else
+        		ret = adata.attendance < bdata.attendance
+        	end
+        else
+            ret = a > b
+        end
+        
+        if SORT_ASC then
+            return not ret
+        else
+            return ret
+        end
+    end
+    
+    function mf:Sort(colnum)
+        if colnum and column ~= mf.table.selectedcolnum then
+            mf.table.selectedcolnum = colnum
+            mf.sortdirty = true
+        end
+        
+        if mf.sortdirty then
+            colnum = mf.table.selectedcolnum
+            if mf.sortkeeper[colnum].issorted then
+                --toggle ascending / descending sort
+                mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
+            else
+                --mf.sortkeeper[colnum].asc = true
+                for idx,keeper in ipairs(mf.sortkeeper) do
+                    keeper.issorted = false
+                end
+                mf.sortkeeper[colnum].issorted = true
+            end
+            table.sort(mf.index_to_name, mf.lootcomparer)
+        end
+        
+        mf.sortdirty = false
+    end
+    
+    function mf:LoadRows(startingindex)
+	    --print('Loading rows...')
+	    if startingindex then
+	        self.table.startingindex = startingindex
+	    end
+	
+	    self:RefreshIndex()
+	    self:Sort()
+	    
+	    local name, data
+	    local index = self.table.startingindex
+	    
+	    local searchmatch = false
+	    local searchnum, searchname
+	    searchnum = tonumber(self.search)
+	    searchname = strlower(self.search)
+	    
+	    local selectedindexfound = false
+	    local exactmatchindex = 0
+	    local exactmatchrow = 0
+	    
+	    for i = 1, self.table.rowcount do
+	        --search
+	        searchmatch = false
+	        while not searchmatch do
+	            name, data = self:RetrieveData(index)
+	            if self.search == '' or not data then
+	                searchmatch = true
+	            else
+	                if data.dkp == searchnum then
+	                    searchmatch = true
+	                elseif strfind(strlower(name), searchname, 1, true) then
+	                    searchmatch = true
+	                    if strlower(name) == strlower(searchname) then
+	                        exactmatchrow = i
+	                        exactmatchindex = index
+	                    end
+	                else
+	                    index = index + 1
+	                end
+	            end
+	        end
+	        
+	        if not data then
+	            for j = 1, self.table.colcount do
+	                self.table.columns[j].cells[i]:SetText('')
+	            end
+	            
+	            self.table.rowbuttons[i]:Hide()
+	            self.table.rowbuttons[i].index = 0
+	        else
+	            --fill in cells with stuff
+	            self.table.columns[1].cells[i]:SetText(name)
+	            self.table.columns[2].cells[i]:SetText(data.dkp)
+	            self.table.columns[3].cells[i]:SetText(data.rank)
+	            self.table.columns[4].cells[i]:SetText(data.role)
+	            self.table.columns[5].cells[i]:SetText(data.attendance)
+	            self.table.columns[6].cells[i]:SetText('')
+	            --self.table.columns[7].cells[i]:SetText(index)
+	            
+	            --attach correct indexnum to rowbutton
+	            self.table.rowbuttons[i]:Show()
+	            self.table.rowbuttons[i].index = index
+	            
+	            if index == self.table.selectedindex then
+	                self.table.rowbuttons[i].highlightspecial:Show()
+	                selectedindexfound = true
+	            else
+	                self.table.rowbuttons[i].highlightspecial:Hide()
+	            end
+	        end
+	        index = index + 1
+	    end
+	    
+	    if exactmatchrow > 0 then
+	        --print('exact match at ', exactmatchindex)
+	        self.table.rowbuttons[exactmatchrow].highlightspecial:Show()
+	        self.table.selectedindex = exactmatchindex
+	    elseif not selectedindexfound then
+	        self.table.selectedindex = 0
+	    end
+	    
+	    self:RefreshDetails()
+	end
+	
+	function mf:Refresh()
+	    self:LoadRows()
+	end
+	
+	function mf:RefreshDetails()
+	    local name, data = self:RetrieveData()
+	    if name and data then
+	        self.title_name:SetText(name)
+	        self.title_dkp:SetText(data.dkp)
+	    else
+	        self.title_name:SetText('')
+	        self.title_dkp:SetText('')
+	    end
+	end
+end
+
 function fRaid.Player.View()
     local mf = fRaid.GUI2.PlayerFrame
 
-    if not mf.viewedonce then
-        --create index table
-        mf.index_to_name = {}
-        mf.lastmodified = 0--fRaid.db.global.Player.LastModified
-        
-        mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 6) 
-        
-        function mf:RetrieveData(index)
-            local name, data
-            if not index or index < 1 then
-                index = self.table.selectedindex
-            end
-            
-            name = self.index_to_name[index]
-            data = fRaid.db.global.Player.PlayerList[name]
-            
-            return name, data
-        end
-        
-        function mf:RefreshIndex(force)
-            if mf.lastmodified ~= fRaid.db.global.Player.LastModified or force then
-                --print('Refreshing index...')
-                table.wipe(mf.index_to_name)
-                mf.lastmodified = fRaid.db.global.Player.LastModified
-                
-                for name,data in pairs(fRaid.db.global.Player.PlayerList) do
-                    	tinsert(mf.index_to_name, name)
-                end
-                
-                local max = #mf.index_to_name - mf.table.rowcount + 1
-                if max < 1 then
-                    max = 1
-                end
-                mf.table.slider:SetMinMaxValues(1, max)
-                mf.sortdirty = true
-            end
-        end
-
-        --click on a header
-        function mf:ClickHeader()
-        	mf.sortdirty = true
-            self:Sort()
-            self:LoadRows()
-        end
-        
-        --click on a row
-        function mf:ClickRow()
-            self:RefreshDetails()
-        end
-        
-        --scroll
-        function mf:Scroll()
-            self:LoadRows()
-        end
-        
-        function mf:LoadRows(startingindex)
-            --print('Loading rows...')
-            if startingindex then
-                self.table.startingindex = startingindex
-            end
-
-            self:RefreshIndex()
-            self:Sort()
-            
-            local name, data
-            local index = self.table.startingindex
-            
-            local searchmatch = false
-            local searchnum, searchname
-            searchnum = tonumber(self.search)
-            searchname = strlower(self.search)
-            
-            local selectedindexfound = false
-            local exactmatchindex = 0
-            local exactmatchrow = 0
-            
-            for i = 1, self.table.rowcount do
-                --search
-                searchmatch = false
-                while not searchmatch do
-                    name, data = self:RetrieveData(index)
-                    if self.search == '' or not data then
-                        searchmatch = true
-                    else
-                        if data.dkp == searchnum then
-                            searchmatch = true
-                        elseif strfind(strlower(name), searchname, 1, true) then
-                            searchmatch = true
-                            if strlower(name) == strlower(searchname) then
-                                exactmatchrow = i
-                                exactmatchindex = index
-                            end
-                        else
-                            index = index + 1
-                        end
-                    end
-                end
-                
-                if not data then
-                    for j = 1, self.table.colcount do
-                        self.table.columns[j].cells[i]:SetText('')
-                    end
-                    
-                    self.table.rowbuttons[i]:Hide()
-                    self.table.rowbuttons[i].index = 0
-                else
-                    --fill in cells with stuff
-                    self.table.columns[1].cells[i]:SetText(name)
-                    self.table.columns[2].cells[i]:SetText(data.dkp)
-                    self.table.columns[3].cells[i]:SetText(data.rank)
-                    self.table.columns[4].cells[i]:SetText(data.role)
-                    self.table.columns[5].cells[i]:SetText(data.attendance)
-                    self.table.columns[6].cells[i]:SetText('')
-                    --self.table.columns[7].cells[i]:SetText(index)
-                    
-                    --attach correct indexnum to rowbutton
-                    self.table.rowbuttons[i]:Show()
-                    self.table.rowbuttons[i].index = index
-                    
-                    if index == self.table.selectedindex then
-                        self.table.rowbuttons[i].highlightspecial:Show()
-                        selectedindexfound = true
-                    else
-                        self.table.rowbuttons[i].highlightspecial:Hide()
-                    end
-                end
-                index = index + 1
-            end
-            
-            if exactmatchrow > 0 then
-                --print('exact match at ', exactmatchindex)
-                self.table.rowbuttons[exactmatchrow].highlightspecial:Show()
-                self.table.selectedindex = exactmatchindex
-                self:RefreshDetails()
-            elseif not selectedindexfound then
-                self.table.selectedindex = 0
-                self:RefreshDetails()
-            end
-        end
-        
-        function mf:Refresh()
-	        mf:LoadRows()
-        end
-        
-        function mf:RefreshDetails()
-            local name, data = self:RetrieveData()
-            if name and data then
-                self.title_name:SetText(name)
-                self.title_dkp:SetText(data.dkp)
-            else
-                self.title_name:SetText('')
-                self.title_dkp:SetText('')
-            end
-		end
-        
-        mf.sortdirty = true
-        mf.sortkeeper = {
-	        {asc = false, issorted = false, name = 'Name'},
-	        {asc = false, issorted = false, name = 'Dkp'},
-	        {asc = false, issorted = false, name = 'Rank'},
-	        {asc = false, issorted = false, name = 'Role'},
-	        {asc = false, issorted = false, name = 'Att'},
-	        {asc = false, issorted = false, name = 'Prog'},
-	        {asc = false, issorted = false, name = 'Id'}
-        }
-        function mf.lootcomparer(a, b) --a and b are names (key for PlayerList)
-            --retrieve data
-            local adata = fRaid.db.global.Player.PlayerList[a]
-            local bdata = fRaid.db.global.Player.PlayerList[b]
-            
-            --find the sorted column and how it is sorted
-            local SORT = mf.table.selectedcolnum
-            local SORT_ASC = mf.sortkeeper[SORT].asc
-            local SORT_NAME = mf.sortkeeper[SORT].name
-            
-            local ret = true
-            
-            if SORT_NAME == 'Rank' then
-            	if adata.rank == bdata.rank then
-            		ret = a > b
-            	else
-            		ret = adata.rank > bdata.rank
-            	end
-            elseif SORT_NAME == 'Dkp' then
-                if adata.dkp == bdata.dkp then
-                    ret = a > b
-                else
-                    ret = adata.dkp < bdata.dkp
-                end
-            elseif SORT_NAME == 'Att' then
-            	if adata.attendance == bdata.attendance then
-            		ret = a > b
-            	else
-            		ret = adata.attendance < bdata.attendance
-            	end
-            else
-                ret = a > b
-            end
-            
-            if SORT_ASC then
-                return not ret
-            else
-                return ret
-            end
-        end
-        
-        function mf:Sort(colnum)
-            if colnum then
-                mf.table.selectedcolnum = colnum
-                mf.sortdirty = true
-            end
-            
-            if mf.sortdirty then
-	            colnum = mf.table.selectedcolnum
-	            if mf.sortkeeper[colnum].issorted then
-	                --toggle ascending / descending sort
-	                mf.sortkeeper[colnum].asc = not mf.sortkeeper[colnum].asc
-	            else
-	                mf.sortkeeper[colnum].asc = true
-	                for idx,keeper in ipairs(mf.sortkeeper) do
-	                    keeper.issorted = false
-	                end
-	                mf.sortkeeper[colnum].issorted = true
-	            end
-	            table.sort(mf.index_to_name, mf.lootcomparer)
-	        end
-	        
-	        mf.sortdirty = false
-        end
+    if not mf.viewedonce then       
+        CreatePlayerFrame()
         
         local function np(self, name)
             fRaid.Player.AddDkp(name, 0, 'new player')

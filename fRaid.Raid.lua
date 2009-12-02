@@ -131,7 +131,9 @@ function fRaid.Raid.Stop()
 	    fRaid:Print('Raid tracking stopped.')
 	    
 	    --update attendance last 32 raids
-	    fRaid.Player.UpdateAttendance(32)
+	    fRaid.Player.UpdateAttendance(16)
+	    fRaid.Player.PrintAttendance("GUILD")
+	    fLib.Guild.RefreshStatus(fRaid.Player.UpdateRankByAttendance)
 	else
 		fRaid:Print('No raid is being tracked.')
 	end
@@ -233,7 +235,6 @@ function fRaid.Raid.AwardProgressionDkp()
 		--check that its time for the next award
 		if curraidobj.Data.NextProgDkpAwarded and fLib.GetTimestamp() >= curraidobj.Data.NextProgDkpAwarded then
 			--award
-			--fRaid.Player.AddDkpToRaid(5, true)
 			curraidobj:AddDkpCharge(5)
 			--update NextProgDkpAwarded
 			curraidobj.Data.NextProgDkpAwarded = fLib.GetTimestamp(fLib.AddMinutes(nil, 30))
@@ -395,7 +396,6 @@ function fRaid.Raid.View()
     	ui:SetNumber(0)
     	ui:SetScript('OnEnterPressed', function() 
     		if this:GetNumber() > 0 then
-    			--fRaid.Player.AddDkpToRaid(this:GetNumber(), true)
     			if fRaid.Raid.IsTracking() then
     				curraidobj:AddDkpCharge(this:GetNumber())
     			else

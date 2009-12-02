@@ -233,7 +233,7 @@ end
 function myfuncs.Present(self, name, minminutes)
 	fRaid:Debug("<<raidobj.Present>>", name, minminutes)
 	if not minminutes then
-		minminutes = 120
+		minminutes = 15
 	end
 	local oRaider = self:AddRaider(name)
 
@@ -459,7 +459,7 @@ end
 
 --(A) UpdateDkpCharge(idx, name, timestamp)
 ----marks a listed player as preset (transfers rader from lToBeP to lListed)
-function myfuncs.UpdateDkpCharge(self, idx, name)
+function myfuncs.UpdateDkpCharge(self, idx, name, force)
 	fRaid:Debug("<<UpdateDkpCharge>>", idx, name)
 	local timestamp = fLib.GetTimestamp()
 	local oCharge = self.Data.lDkpCharges[idx]
@@ -481,7 +481,7 @@ function myfuncs.UpdateDkpCharge(self, idx, name)
 		end
 
 		if i then
-			if timestamp <= oCharge.to then
+			if timestamp <= oCharge.to or force then
 				--move them from lToBeP to lListed and charge them dkp
 				tremove(oCharge.lToBeP, i)
 				fRaid.Player.AddDkp(name, oCharge.dkp/2, 'dkpcharge ' .. timestamp)
