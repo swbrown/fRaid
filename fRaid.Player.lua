@@ -515,7 +515,7 @@ end
 
 function fRaid.Player.GetAttendancePercent(playername)
 	local playerobj = fRaid.db.global.Player.PlayerList[playername]
-	if playerobj.attendance and playerobj.attendance > 0 and fRaid.db.global.Player.AttendanceTotal > 0 then
+	if playerobj and playerobj.attendance and playerobj.attendance > 0 and fRaid.db.global.Player.AttendanceTotal > 0 then
 		return floor(playerobj.attendance / fRaid.db.global.Player.AttendanceTotal * 100)
 	else
 		return 0
@@ -582,10 +582,38 @@ function fRaid.Player.PrintAttendance(channel, minpercent)
 	end
 end
 
-function fRaid.Player.WhisperCommand(cmd, whispertarget)
-	cmd = strlower(strtrim(cmd))
+function fRaid.Player.MakeDkpMessage(name)
+	name = fRaid:Capitalize(strlower(strtrim(name)))
+	local obj = fRaid.db.global.Player.PlayerList[name]
+	local dkp = 0
+	if obj and obj.dkp > 0 then
+		dkp = obj.dkp
+	end
+	return name .. " has " .. dkp .. " dkp"
+end
+
+function fRaid.Player.MakeAttendanceMessage(name)
+	name = fRaid:Capitalize(strlower(strtrim(name)))
+	local att = fRaid.Player.GetAttendancePercent(name)
+	if not fRaid.db.global.Player.AttendanceTotal then
+		fRaid.db.global.Player.AttendanceTotal = 0
+	end
+	return name .. "'s attendance is " .. att .. "% for the past " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
+end
+
+function fRaid.Player.WhisperCommand(cmd, name, whispertarget)
+	local msg = "Unknown Command"
+	if cmd == "dkp" then
+		msg = fRaid.Player.MakeDkpMessage(name)
+	elseif cmd == "att" then
+		msg = fRaid.Player.MakeAttendanceMessage(name)
+	end
 	
-	
+	if not whispertarget then
+		fRaid:Print(msg)
+	else
+		fRaid.Whisper(msg, whispertarget)
+	end
 end
 
 --cmd is a player name or TODO: one of the keywords

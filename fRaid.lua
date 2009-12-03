@@ -94,6 +94,7 @@ local defaults = {
 		prefix = {
 			bid = 'bid',
 			dkp = 'dkp',
+			attendance = 'att',
 			dkpcheckin = 'dkpcheck',
 		},
 		gui = {
@@ -142,8 +143,10 @@ local function WhisperFilter(self, event, msg)
 	msg = strlower(strtrim(msg))
 	if strfind(msg, addon.db.global.prefix.bid) == 1 then
 		--add a bid
-	end
-	if strfind(msg, addon.db.global.prefix.dkp) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.dkp) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.attendance) == 1 then
 		return true
 	end
 	
@@ -256,13 +259,23 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		--"dkp name" player = name, whispertarget = author
 		local player = author
 		local whispertarget = author
-		
 		if words[2] then
-			self:Debug("words[2]=" .. words[2])
 			player = words[2]
 		end
 		
-		fRaid.Player.WhisperDkp(player, whispertarget)
+		--fRaid.Player.WhisperDkp(player, whispertarget)
+		fRaid.Player.WhisperCommand("dkp", player, whispertarget)
+	elseif cmd == self.db.global.prefix.attendance then
+		--Attendance whisper
+		--"att" player = author, whispertarget = author
+		--"att name" player = name, whispertarget = author
+		local player = author
+		local whispertarget = author
+		if words[2] then
+			player = words[2]
+		end
+		
+		fRaid.Player.WhisperCommand("att", player, whispertarget)
 	elseif cmd == self.db.global.prefix.dkpcheckin then
 		local name = author
 		local idx = 0
@@ -307,6 +320,11 @@ end
 --Functions
 function addon.GetBidPrefix()
 	return db.prefix.bid
+end
+
+--Send a whisper
+function fRaid.Whisper(msg, name)
+	fLib.Com.Whisper("[" .. NAME .. "] " .. msg, name)
 end
 
 --==================================================================================================
