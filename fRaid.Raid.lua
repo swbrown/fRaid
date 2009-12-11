@@ -133,7 +133,9 @@ function fRaid.Raid.Stop()
 	    --update attendance last 32 raids
 	    fRaid.Player.UpdateAttendance(16)
 	    fRaid.Player.PrintAttendance("GUILD")
-	    fLib.Guild.RefreshStatus(fRaid.Player.UpdateRankByAttendance)
+	    --fLib.Guild.RefreshStatus(fRaid.Player.UpdateRankByAttendance) no longer changing people's ranks
+	    --new attendance flag (high/low) gets changed in UpdateAttendance)
+	    fRaid.Player.UpdateFlagByAttendance()
 	else
 		fRaid:Print('No raid is being tracked.')
 	end
@@ -145,7 +147,8 @@ function fRaid.Raid.DkpCheckin(idx, name)
 		curraidobj:UpdateDkpCharge(idx, name)
 	else
 		--TODO: whisper back that there's no raid being tracked
-		fRaid:Whisper(name, "No raid is currently being tracked.")
+		--fRaid:Whisper(name, "No raid is currently being tracked.")
+		fRaid.Whisper2("No raid is currently being tracked.", name)
 	end
 end
 --[[
@@ -255,6 +258,7 @@ function fRaid.Raid.StopProgressionDkpTimer()
 end
 
 --returns a sorted list of {owner,idx}
+--max is the maximum number of raids to return
 function fRaid.Raid.GetSortedRaidList(max)
 	local function raidobjcomparer(data1, data2)
 		--data1/2 is a list containing owner and idx
@@ -273,6 +277,7 @@ function fRaid.Raid.GetSortedRaidList(max)
 	sort(temp, raidobjcomparer)
 	
 	if max and max > 0 then
+		--keep removing one off the end until we only have max left
 		while #temp > max do
 			tremove(temp, 1)
 		end

@@ -322,10 +322,12 @@ function addon.GetBidPrefix()
 	return db.prefix.bid
 end
 
+
 --Send a whisper
-function fRaid.Whisper(msg, name)
+function fRaid.Whisper2(msg, name)
 	fLib.Com.Whisper("[" .. NAME .. "] " .. msg, name)
 end
+
 
 --==================================================================================================
 

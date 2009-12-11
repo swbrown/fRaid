@@ -224,7 +224,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 			end
 			
 			--sort bids
-			print('sorting')
+			--print('sorting')
 			sort(info.bids, bidcomparer)
 			
 			--refresh gui
@@ -362,18 +362,21 @@ end
 
 function addon.AddBid(playername, number, cmd)
 	if not playername then
-		fRaid:Whisper(playername,'Invalid bid: missing playername')
+		--fRaid:Whisper(playername,'Invalid bid: missing playername')
+		fRaid.Whisper2('Invalid bid: missing playername', playername)
 		return
 	end
 	local nums = BIDLIST.GetAvailableNumbers()
 	if not number then
-		fRaid:Whisper(playername,'Invalid bid: invalid or missing bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
+		--fRaid:Whisper(playername,'Invalid bid: invalid or missing bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
+		fRaid.Whisper2('Invalid bid: invalid or missing bid number. Available bid numbers are '..strjoin(',', unpack(nums)), playername)
 		return
 	end
 	
 	local iteminfo = BIDLIST.GetItemInfoByNumber(number)
 	if not iteminfo then
-		fRaid:Whisper(playername, 'Invalid bid: invalid bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
+		--fRaid:Whisper(playername, 'Invalid bid: invalid bid number. Available bid numbers are '..strjoin(',', unpack(nums)))
+		fRaid.Whisper2('Invalid bid: invalid bid number. Available bid numbers are '..strjoin(',', unpack(nums)), playername)
 		return
 	end
 	
@@ -386,7 +389,8 @@ function addon.AddBid(playername, number, cmd)
 		else
 			msg = msg .. 'You have no dkp available'
 		end
-		fRaid:Whisper(playername, msg)
+		--fRaid:Whisper(playername, msg)
+		fRaid.Whisper2(msg, playername)
 		return
 	end
 	
@@ -400,14 +404,17 @@ function addon.AddBid(playername, number, cmd)
 				if dkpinfo.dkp > 0 then
 					amount = tonumber(dkpinfo.dkp)
 				elseif dkpinfo.dkp == 0 then
-					fRaid:Whisper(playername, 'You have no dkp available, you can still bid min by whispering bid number min')
+					--fRaid:Whisper(playername, 'You have no dkp available, you can still bid min by whispering bid number min')
+					fRaid.Whisper2('You have no dkp available, you can still bid min by whispering bid number min', playername)
 					return
 				else
-					fRaid:Whisper(playername, 'You have negative dkp available, you can still bid min by whispering bid number min')
+					--fRaid:Whisper(playername, 'You have negative dkp available, you can still bid min by whispering bid number min')
+					fRaid.Whisper2('You have negative dkp available, you can still bid min by whispering bid number min', playername)
 					return
 				end
 			else
-				fRaid:Whisper(playername, 'You have no dkp available, you can still bid min by whispering bid number min')
+				--fRaid:Whisper(playername, 'You have no dkp available, you can still bid min by whispering bid number min')
+				fRaid.Whisper2('You have no dkp available, you can still bid min by whispering bid number min', playername)
 				return
 			end
 		elseif cmd == 'min' then
@@ -419,7 +426,8 @@ function addon.AddBid(playername, number, cmd)
 			end
 		elseif cmd == 'cancel' then
 			BIDLIST.RemoveBid(playername, number)
-			fRaid:Whisper(playername, 'Your bid on ' .. iteminfo.link..' has been removed')
+			--fRaid:Whisper(playername, 'Your bid on ' .. iteminfo.link..' has been removed')
+			fRaid.Whisper2('Your bid on ' .. iteminfo.link..' has been removed', playername)
 			return
 		end
 	end
@@ -427,12 +435,14 @@ function addon.AddBid(playername, number, cmd)
 	amount = ceil(amount)
 	
 	if amount < 0 then
-		fRaid:Whisper(playername, 'Negative bid amount rejected.')
+		--fRaid:Whisper(playername, 'Negative bid amount rejected.')
+		fRaid.Whisper2('Negative bid amount rejected.', playername)
 		return
 	end
 	
 	if amount > 10000 then
-		fRaid:Whisper(playername, 'Outrageous bid amount rejected.')
+		--fRaid:Whisper(playername, 'Outrageous bid amount rejected.')
+		fRaid.Whisper2('Outrageous bid amount rejected.', playername)
 		return
 	end
 	
@@ -448,12 +458,30 @@ function addon.AddBid(playername, number, cmd)
 			--fRaid:Whisper(playername, 'Capping your bid at mindkp since you have less than mindkp.')		
 		elseif amount < lootinfo.mindkp then
 			amount = lootinfo.mindkp
-			fRaid:Whisper(playername, 'Rasing your bid to mindkp.')
+			--fRaid:Whisper(playername, 'Raising your bid to mindkp.')
+			fRaid.Whisper2( 'Raising your bid to mindkp.', playername)
 		end
 	end
 	
+	--cap bids based on ranks
+	--TODO: implement new attendance flags
+	if (dkpinfo.rank == "Member") and amount > 120 then
+		amount = 120
+		fRaid.Whisper2('Capping your bid at Tier 2: 120dkp', playername)
+	elseif (dkpinfo.rank == "Initiate") and amount > 60 then
+		amount = 60
+		fRaid.Whisper2('Capping your bid at Tier 3: 60dkp', playername)
+	elseif (dkpinfo.rank == "F&F" or dkpinfo.rank == "Alt" or dkpinfo.rank == "" or not dkpinfo.rank) and amount > 20 then
+		amount = 20
+		fRaid.Whisper2('Capping your bid at Tier 4: 20dkp', playername)
+	elseif (dkpinfo.attflag == "low") and amount > 120 then
+		amount = 120
+		fRaid.Whisper2('Capping your bid at Tier 2: 120dkp', playername)
+	end
+	
 	BIDLIST.AddBid(playername, number, amount)
-	fRaid:Whisper(playername, 'Accepted ' .. playername .. '\'s bid on ' .. iteminfo.link .. ' for ' .. amount .. ' DKP.')
+	--fRaid:Whisper(playername, 'Accepted ' .. playername .. '\'s bid on ' .. iteminfo.link .. ' for ' .. amount .. ' DKP.')
+	fRaid.Whisper2('Accepted ' .. playername .. '\'s bid on ' .. iteminfo.link .. ' for ' .. amount .. ' DKP.', playername)
 end
 
 function addon.AnnounceBidItems()
@@ -865,6 +893,8 @@ function fRaidBid.CreateGUI()
 				
 				--3 Rank
 				--TODO: need to fill this column in...
+				--mw_bids.col3[z]:SetText(fRaid.Player.GetRank(bidinfo.name))
+				mw_bids.col3[z]:SetText(fRaid.Player.GetAttendanceFlag(bidinfo.name))
 				mw_bids.col3[z]:Show()
 				
 				--4 Bid

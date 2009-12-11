@@ -43,7 +43,7 @@ local function createplayerobj()
 	    attendance = 0,
 	    class = '',
 	    rank = '',
-	    role = '', --dps, heal, tank?
+	    attflag = '', --high or low
     }
     
     return obj
@@ -385,7 +385,8 @@ function fRaid.Player.AddDkp(name, amount, note)
     local msg = name .. ' - Prev Dkp: ' .. objcopy.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. objcopy2.dkp
 
     fRaid:Print('UPDATE: ' .. msg)
-    fRaid:Whisper(name, msg)
+    --fRaid:Whisper(name, msg)
+    fRaid.Whisper2(msg, name)
 end
 
 
@@ -414,6 +415,48 @@ function fRaid.Player.CalculateDkpDecay(dkp, attendancepercent)
 --addy
 end
 
+function fRaid.Player.GetRank(name)
+	local playerobj = LIST.GetPlayer(name)
+	if playerobj and playerobj.rank and playerobj.rank ~= "" then
+		return playerobj.rank
+	end
+	return ""
+end
+
+function fRaid.Player.GetAttendanceFlag(name)
+	local playerobj = LIST.GetPlayer(name)
+	if playerobj and playerobj.attflag and playerobj.attflag ~= "" then
+		return playerobj.attflag
+	end
+	return ""
+end
+
+--returns the date of the last raid attended how many raids ago that was
+--i.e. 09/10/02 05:55:00, 10 would be the date of the last raid attended
+--and that raid was 10 raids ago 
+function fRaid.Player.LastRaidAttended(name)
+	name = fRaid:Capitalize(strlower(strtrim(name)))
+
+	--First, let's collect the last 60 raids
+	local temp = fRaid.Raid.GetSortedRaidList()
+	
+	--Now let's go thru the raids from the back
+	--to find the first one they were in
+	for i = #temp, 1, -1 do
+		local data = temp[i]
+		local owner = data[1]
+		local idx = data[2]
+		
+		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
+		local oRaid = fRaid.Raid.raidobj.new()
+		oRaid:Load(raiddata)
+		
+		if oRaid:Present(name) then
+			return raiddata.StartTime, #temp - i
+		end
+	end
+end
+
 --updates each player's guild rank if they are in the guild
 --otherwise they will have no rank
 function fRaid.Player.UpdateRank()
@@ -436,8 +479,6 @@ function fRaid.Player.UpdateRankByAttendance()
 	--Scan thru each guild member and update their rank based on attendance
 	local playerobj, percent
 	for name, info in pairs(fLib.Guild.Roster) do
-		--fRaid:Print("Updating " .. name)
-		
 		--retrieve data to calculate percent attendance
 		playerobj = fRaid.db.global.Player.PlayerList[name]
 		if playerobj then
@@ -450,12 +491,12 @@ function fRaid.Player.UpdateRankByAttendance()
 		--if >= 75% promote only if they are Member
 		if percent < 75 and info.rank == "Raider" then
 			--demote them
-			fRaid:Print(name .. " queued for demotion.")
-			fLib.Guild.Demote(name)
+			--fRaid:Print(name .. " queued for demotion.")
+			--fLib.Guild.Demote(name)
 		elseif percent >= 75 and info.rank == "Member" then
 			--promote them
-			fRaid:Print(name .. " queued for promotion.")
-			fLib.Guild.Promote(name)
+			--fRaid:Print(name .. " queued for promotion.")
+			--fLib.Guild.Promote(name)
 		end
 	end
 	
@@ -464,6 +505,23 @@ end
 function fRaid.Player.UpdateRankByAttendanceComplete()
 	fRaid:Print("Update guild ranks by attendance complete.")
 	fRaid.Player.UpdateRank()
+end
+
+function fRaid.Player.UpdateFlagByAttendance()
+	--Update their attflag
+	local percent = 0
+	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
+		if not playerobj.attflag or playerobj.attflag == "" then
+			playerobj.attflag = "high"
+		end
+			
+		percent = fRaid.Player.CalculatePercent(playerobj.attendance)
+		if playerobj.attflag == "high" and percent < 50 then
+			playerobj.attflag = "low"
+		elseif playerobj.attflag == "low" and percent >= 75 then
+			playerobj.attflag = "high"
+		end
+	end
 end
 
 --updates each player's class if they are in the guild
@@ -480,9 +538,13 @@ end
 
 --updates each player's attendance based on the last numraids
 function fRaid.Player.UpdateAttendance(numraids)
-	fRaid:Print("Calculating for the past "..numraids.." raids")
+	if not numraids or numraids <= 0 then
+		numraids = fRaid.db.global.Player.AttendanceTotal
+	end
 	
-	--First, let's collect the raids w/in the last numdays
+	fRaid:Print("Updating attendance over "..numraids.." raids")
+	
+	--First, let's collect the last numraids raids
 	local temp = fRaid.Raid.GetSortedRaidList(numraids)
 	
 	--Now, let's zero everyone's attendance
@@ -510,13 +572,130 @@ function fRaid.Player.UpdateAttendance(numraids)
 		end
 	end
 	fRaid.db.global.Player.AttendanceTotal = totalraidcount
+
 	fRaid:Print(totalraidcount, " raids scanned")
 end
 
+--calculates attendance over numraids
+--limits calculation to guildees of a certain rank
+function fRaid.Player.UpdateTempAttendance(numraids, rank)
+	if not numraids or numraids <= 0 then
+		fRaid:Print("numraids required > 0")
+		return
+	end
+	
+	fRaid:Print("Updating temp attendance over " .. numraids .. " raids")
+	
+	--First, let's collect the last numraids raids
+	local temp = fRaid.Raid.GetSortedRaidList(numraids)
+	
+	--create TempAttendance list
+	--will eventually map name -> attendance%
+	fRaid.Player.TempAttendance = {}
+	
+	--fill with guildees of a certain rank
+	for name, data in pairs(fRaid.db.global.Player.PlayerList) do
+		if rank then
+			if data.rank == rank then
+				fRaid.Player.TempAttendance[name] = 0
+			end
+		else
+			fRaid.Player.TempAttendance[name] = 0
+		end
+	end
+	
+	--Now, let's go thru each raid and add up their attendance
+	local totalraidcount = 0
+	for idx, data in pairs(temp) do
+		totalraidcount = totalraidcount + 1
+		local owner = data[1]
+		local idx = data[2]
+		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
+		local oRaid = fRaid.Raid.raidobj.new()
+		oRaid:Load(raiddata)
+		
+		for name, oRaider in pairs(oRaid.Data.RaiderList) do
+			if oRaid:Present(name) then
+				if fRaid.Player.TempAttendance[name] then
+					fRaid.Player.TempAttendance[name] = fRaid.Player.TempAttendance[name] + 1
+				end
+			end
+		end
+	end
+	
+	fRaid.Player.TempAttendanceCount = totalraidcount
+	fRaid.Player.TempAttendanceRank = rank
+	for name, num in pairs(fRaid.Player.TempAttendance) do
+		fRaid.Player.TempAttendance[name] = floor(num / totalraidcount * 100)
+	end
+
+	fRaid:Print(totalraidcount .. " raids scanned")
+end
+
+function fRaid.Player.PrintTempAttendance(channel)
+	if not fRaid.Player.TempAttendanceCount or fRaid.Player.TempAttendanceCount <= 0 then
+		fRaid:Print("No temp attendance calculated")
+	end	
+
+	local function sortfunc(name1, name2)
+		local ret = name1 < name2
+		local att1 = fRaid.Player.TempAttendance[name1]
+		local att2 = fRaid.Player.TempAttendance[name2]
+		if att1 ~= att2 then
+			ret = att1 > att2
+		end
+		return ret
+	end
+	local temp = {}
+	for name, att in pairs(fRaid.Player.TempAttendance) do
+		tinsert(temp, name)
+	end
+	sort(temp, sortfunc)
+
+	local str = "Attendance over " ..  fRaid.Player.TempAttendanceCount .. " raids"
+	if fRaid.Player.TempAttendanceRank and fRaid.Player.TempAttendanceRank ~= "" then
+		str = str .. " (" .. fRaid.Player.TempAttendanceRank .. "s only)"
+	end
+	str = str .. ":"
+	fLib.Com.Special(str, channel)
+	str = ""
+	
+	local percent = 0
+	local lastpercent = -1
+	for _, name in ipairs(temp) do
+		percent = fRaid.Player.TempAttendance[name]
+		if (percent ~= lastpercent) then
+			if lastpercent ~= -1 then
+				str = str .. "]"
+				fLib.Com.Special(str, channel)
+				str = ""
+			end
+			str = str .. percent .. "%[" .. name
+			lastpercent = percent
+		else
+			str = str .. "," .. name
+		end
+	end
+
+	if str ~= "" then
+		str = str .. "]"
+		fLib.Com.Special(str, channel)
+	end
+end
+
+function fRaid.Player.CalculatePercent(attendancecount)
+	if attendancecount > fRaid.db.global.Player.AttendanceTotal or attendancecount < 0 then
+		fRaid:Print("Invalid attendance count provided.")
+	else
+		return floor(attendancecount / fRaid.db.global.Player.AttendanceTotal * 100)
+	end
+end
+
 function fRaid.Player.GetAttendancePercent(playername)
+	playername = fRaid:Capitalize(strlower(strtrim(playername)))
 	local playerobj = fRaid.db.global.Player.PlayerList[playername]
 	if playerobj and playerobj.attendance and playerobj.attendance > 0 and fRaid.db.global.Player.AttendanceTotal > 0 then
-		return floor(playerobj.attendance / fRaid.db.global.Player.AttendanceTotal * 100)
+		return fRaid.Player.CalculatePercent(playerobj.attendance)
 	else
 		return 0
 	end
@@ -598,8 +777,36 @@ function fRaid.Player.MakeAttendanceMessage(name)
 	if not fRaid.db.global.Player.AttendanceTotal then
 		fRaid.db.global.Player.AttendanceTotal = 0
 	end
-	return name .. "'s attendance is " .. att .. "% for the past " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
+	
+	local obj = fRaid.db.global.Player.PlayerList[name]
+	local attflag = ""
+	if obj.attflag == "low" then
+		attflag = "Low Attendance"
+	elseif obj.attflag == "high" then
+		attflag = "High Attendance"
+	else
+		attflag = "Not Calculated"
+	end
+	return name .. " is currently flagged as " .. attflag .. ".  Actual percent is " .. att .. "% over " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
+	--return name .. "'s attendance is " .. att .. "% for the past " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
 end
+
+function fRaid.Player.MakeBiddingRulesMessage()
+	local msg = "Tier 1: High Attendance - no cap, Tier 2: Member, Low Attendance - 120dkp, Tier 3: Initiate - 60dkp, Tier 4: F&F Alt Apps - 20dkp, Min Bid - 20dkp"
+end
+
+--cmd is a player name or TODO: one of the keywords
+local keywords = {
+priest = true,
+mage = true, 
+warrior = true, 
+warlock = true, 
+deathknight = true, 
+paladin = true, 
+druid = true, 
+shaman = true, 
+hunter = true
+}
 
 function fRaid.Player.WhisperCommand(cmd, name, whispertarget)
 	local msg = "Unknown Command"
@@ -612,49 +819,11 @@ function fRaid.Player.WhisperCommand(cmd, name, whispertarget)
 	if not whispertarget then
 		fRaid:Print(msg)
 	else
-		fRaid.Whisper(msg, whispertarget)
+		fRaid.Whisper2(msg, whispertarget)
 	end
 end
 
---cmd is a player name or TODO: one of the keywords
-local keywords = {
-    priest = true,
-    mage = true, 
-    warrior = true, 
-    warlock = true, 
-    deathknight = true, 
-    paladin = true, 
-    druid = true, 
-    shaman = true, 
-    hunter = true
-}
-function fRaid.Player.WhisperDkp(cmd, whispertarget)
-    fRaid:Debug("<<WhisperDKP>> cmd = " .. cmd .. ", whispertarget = " .. whispertarget)
 
-    cmd = strlower(strtrim(cmd))
-
-    --check for special keywords
-    local iskeyword = false
-    if keywords[cmd] then
-        iskeyword = true
-    end
-
-    local msg = ''
-    
-    --TODO: make iskeyword message
-    local obj = LIST.GetPlayer(cmd)
-    if obj then
-        msg = cmd .. ' has ' .. obj.dkp .. ' dkp'
-    else
-        msg = cmd .. ' has 0 dkp'
-    end
-
-    if not whispertarget then
-        fRaid:Print(msg)
-    else
-        fRaid:Whisper(whispertarget, msg)
-    end
-end
 
 function fRaid.Player.Find(name, cutoff)
 	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
@@ -889,7 +1058,7 @@ local function CreatePlayerFrame()
 	            self.table.columns[3].cells[i]:SetText(data.rank)
 	            self.table.columns[4].cells[i]:SetText(data.role)
 	            self.table.columns[5].cells[i]:SetText(data.attendance)
-	            self.table.columns[6].cells[i]:SetText('')
+	            self.table.columns[6].cells[i]:SetText(data.attflag)
 	            --self.table.columns[7].cells[i]:SetText(index)
 	            
 	            --attach correct indexnum to rowbutton
@@ -968,15 +1137,15 @@ function fRaid.Player.View()
         mf.table.columns[i]:SetWidth(50)
         i = i + 1
         mf.table.columns[i].headerbutton:SetText('Rank')
-        mf.table.columns[i]:SetWidth(50)
+        mf.table.columns[i]:SetWidth(60)
         i = i + 1
         mf.table.columns[i].headerbutton:SetText('Role')
         mf.table.columns[i]:SetWidth(75)
         i = i + 1
         mf.table.columns[i].headerbutton:SetText('Att')
-        mf.table.columns[i]:SetWidth(50)
+        mf.table.columns[i]:SetWidth(40)
         i = i + 1
-        mf.table.columns[i].headerbutton:SetText('Prog')
+        mf.table.columns[i].headerbutton:SetText('AttFlag')
         mf.table.columns[i]:SetWidth(50)
         i = i + 1
         --mf.table.columns[i].headerbutton:SetText('Id')

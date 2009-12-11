@@ -430,14 +430,23 @@ function myfuncs.AddDkpCharge(self, amount, timestamp, lListPresent)
 		lToBeP = {}, --list of raiders who need to whisper back in order to get dkp
 	}
 	
+	local alt
 	for name, oRaider in pairs(self.Data.RaiderList) do
 		if self:InRaid(name) then
 			fRaid.Player.AddDkp(name, amount, 'dkpcharge ' .. timestamp)
 			tinsert(oCharge.lRaiders, name)
 		elseif self:InList(name) then
-			--fRaid.Player.AddDkp(name, amount/2, 'dkpcharge ' .. timestamp)
-			--TODO: check lListedPresent
-			tinsert(oCharge.lToBeP, name)
+			--autoawarddkp
+			fRaid.Player.AddDkp(name, amount/2, 'dkpcharge ' .. timestamp)
+			tinsert(oCharge.lListed, name)
+			alt = fList.GetAltFromPlayer(name)
+			if alt and alt ~= "" then
+				--fRaid:Whisper(alt, name.." was awarded dkp")
+				fRaid.Whisper2(name .. " was awarded dkp", alt)
+			end
+			
+			--dkpcheck
+			--tinsert(oCharge.lToBeP, name)
 		end
 	end
 	
@@ -448,11 +457,13 @@ function myfuncs.AddDkpCharge(self, amount, timestamp, lListPresent)
 	
 	--whisper lToBeP that they need to whisper you back for dkp
 	for _, name in ipairs(oCharge.lToBeP) do
-		fRaid:Whisper(name, "You have been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx)
+		--fRaid:Whisper(name, "You have been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx)
+		fRaid.Whisper2("You have been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx, name)
 		--check if they have an alt
-		local alt = fList.GetAltFromPlayer(name)
+		alt = fList.GetAltFromPlayer(name)
 		if alt and alt ~= '' then
-			fRaid:Whisper(alt, name.." has been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx)
+			--fRaid:Whisper(alt, name.." has been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx)
+			fRaid.Whisper2(name.." has been awarded "..listeddkp..", which will expire in 5 minutes.  Please whisper me to receive your dkp.  /w "..MYNAME.." "..fRaid.db.global.prefix.dkpcheckin.." "..idx, alt)
 		end
 	end
 end
@@ -487,17 +498,21 @@ function myfuncs.UpdateDkpCharge(self, idx, name, force)
 				fRaid.Player.AddDkp(name, oCharge.dkp/2, 'dkpcharge ' .. timestamp)
 				tinsert(oCharge.lListed, name)
 				if alt then
-					fRaid:Whisper(alt, name.." was awarded dkp")
+					--fRaid:Whisper(alt, name.." was awarded dkp")
+					fRaid.Whisper2(name.." was awarded dkp", alt)
 				end
 			else
-				fRaid:Whisper(name, "Your listed dkp has expired.")
+				--fRaid:Whisper(name, "Your listed dkp has expired.")
+				fRaid.Whisper2("Your listed dkp has expired.", name)
 				if alt then fRaid:Whisper(alt, "Your listed dkp has expired.") end
 			end
 		else
-			fRaid:Whisper(name, "You have no listed dkp for number "..idx)
+			--fRaid:Whisper(name, "You have no listed dkp for number "..idx)
+			fRaid.Whisper2("You have no listed dkp for number "..idx, name)
 		end
 	else
-		fRaid:Whisper(name, "You have no listed dkp for number "..idx)
+		--fRaid:Whisper(name, "You have no listed dkp for number "..idx)
+		fRaid.Whisper2("You have no listed dkp for number "..idx, name)
 	end
 end
 
