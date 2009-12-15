@@ -432,10 +432,10 @@ function myfuncs.AddDkpCharge(self, amount, timestamp, lListPresent)
 	
 	local alt
 	for name, oRaider in pairs(self.Data.RaiderList) do
-		if self:InRaid(name) then
+		if self:InRaid(name, timestamp) then
 			fRaid.Player.AddDkp(name, amount, 'dkpcharge ' .. timestamp)
 			tinsert(oCharge.lRaiders, name)
-		elseif self:InList(name) then
+		elseif self:InList(name, timestamp) then
 			--autoawarddkp
 			fRaid.Player.AddDkp(name, amount/2, 'dkpcharge ' .. timestamp)
 			tinsert(oCharge.lListed, name)

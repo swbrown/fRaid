@@ -522,6 +522,7 @@ function fRaid.Player.UpdateFlagByAttendance()
 			playerobj.attflag = "high"
 		end
 	end
+	fRaid:Print("Update flags by attendance complete.")
 end
 
 --updates each player's class if they are in the guild
