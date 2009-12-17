@@ -474,6 +474,21 @@ function fRaid.Player.UpdateRank()
 	fRaid:Print("Update rank complete.")
 end
 
+--updates each player's class if they are in the guild
+function fRaid.Player.UpdateClass()
+	--try to get class from fLib.Guild
+	local ginfo
+	for playername, obj in pairs(fRaid.db.global.Player.PlayerList) do
+		ginfo = fLib.Guild.GetInfo(playername)
+		if ginfo and ginfo.class then
+			obj.class = ginfo.class
+		end
+	end
+end
+
+
+--[[
+removed...
 --promote or demotes players based on their raid attendance
 function fRaid.Player.UpdateRankByAttendance()
 	--Scan thru each guild member and update their rank based on attendance
@@ -506,42 +521,24 @@ function fRaid.Player.UpdateRankByAttendanceComplete()
 	fRaid:Print("Update guild ranks by attendance complete.")
 	fRaid.Player.UpdateRank()
 end
+--]]
 
-function fRaid.Player.UpdateFlagByAttendance()
-	--Update their attflag
-	local percent = 0
-	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
-		if not playerobj.attflag or playerobj.attflag == "" then
-			playerobj.attflag = "high"
-		end
-			
-		percent = fRaid.Player.CalculatePercent(playerobj.attendance)
-		if playerobj.attflag == "high" and percent < 50 then
-			playerobj.attflag = "low"
-		elseif playerobj.attflag == "low" and percent >= 75 then
-			playerobj.attflag = "high"
-		end
-	end
-	fRaid:Print("Update flags by attendance complete.")
-end
 
---updates each player's class if they are in the guild
-function fRaid.Player.UpdateClass()
-	--try to get class from fLib.Guild
-	local ginfo
-	for playername, obj in pairs(fRaid.db.global.Player.PlayerList) do
-		ginfo = fLib.Guild.GetInfo(playername)
-		if ginfo and ginfo.class then
-			obj.class = ginfo.class
-		end
+
+
+
+function fRaid.Player.SetAttendanceTotal(numraids)
+	if not numraids or numraids <= 0 then
+		fRaid:Print("Invalid number of raids specified for Attendance Total.")
+		return
 	end
+	
+	fRaid.db.global.Player.AttendanceTotal = numraids
 end
 
 --updates each player's attendance based on the last numraids
-function fRaid.Player.UpdateAttendance(numraids)
-	if not numraids or numraids <= 0 then
-		numraids = fRaid.db.global.Player.AttendanceTotal
-	end
+function fRaid.Player.UpdateAttendance()
+	local numraids = fRaid.db.global.Player.AttendanceTotal
 	
 	fRaid:Print("Updating attendance over "..numraids.." raids")
 	
@@ -576,6 +573,50 @@ function fRaid.Player.UpdateAttendance(numraids)
 
 	fRaid:Print(totalraidcount, " raids scanned")
 end
+
+--updates the attendance flag based on player.attendance
+function fRaid.Player.UpdateFlagByAttendance()
+	--Update their attflag
+	local percent = 0
+	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
+		if not playerobj.attflag or playerobj.attflag == "" then
+			playerobj.attflag = "high"
+		end
+			
+		percent = fRaid.Player.CalculatePercent(playerobj.attendance)
+		if playerobj.attflag == "high" and percent < 50 then
+			playerobj.attflag = "low"
+		elseif playerobj.attflag == "low" and percent >= 75 then
+			playerobj.attflag = "high"
+		end
+	end
+	fRaid:Print("Update flags by attendance complete.")
+end
+
+function fRaid.Player.TakeAttendanceFlagSnapshot(time)
+	if not time then
+		fRaid:Print("TakeAttendanceFlagSnapshot(time) missing parameter time.")
+		return
+	end
+	--AttendanceFlagSnapshots = {}, --list of afsnapshots: {snapshotdate, snapshot}; snapshot maps playername to
+	if #fRaid.db.global.Player.AttendanceFlagSnapshots == 0 then
+		--only happens the very very first time
+		local snapshot = {}
+		snapshot.Time = time
+		snapshot.Data = {}
+		for name, _ in pairs(fRaid.db.global.Player.PlayerList) do
+			--everyone starts out high
+			snapshot.Data[name] = "high"
+		end
+	
+		tinsert(fRaid.db.global.Player.AttendanceFlagSnapshots, snapshot)
+	else
+		--calculate from last snapshot up to date
+		--save flags at date
+	end
+end
+
+
 
 --calculates attendance over numraids
 --limits calculation to guildees of a certain rank

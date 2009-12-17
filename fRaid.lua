@@ -123,6 +123,7 @@ local defaults = {
 		  ChangeList = {},
 		  Count = 0,
 		  LastModified = 0,
+		  AttendanceFlagSnapshots = {}, --list of afsnapshots: {snapshotdate, snapshot}; snapshot maps playername to 
 		},
 		Raid = {
 		  RaidList = {},

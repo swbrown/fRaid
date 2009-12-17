@@ -130,8 +130,8 @@ function fRaid.Raid.Stop()
 	    
 	    fRaid:Print('Raid tracking stopped.')
 	    
-	    --update attendance last 32 raids
-	    fRaid.Player.UpdateAttendance(16)
+	    --update attendance last x raids
+	    fRaid.Player.UpdateAttendance()
 	    fRaid.Player.PrintAttendance("GUILD")
 	    --fLib.Guild.RefreshStatus(fRaid.Player.UpdateRankByAttendance) no longer changing people's ranks
 	    --new attendance flag (high/low) gets changed in UpdateAttendance)
