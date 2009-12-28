@@ -91,6 +91,8 @@ function fRaid.Raid.Start()
     if fRaid.Raid.IsTracking() then
         fRaid:Print('You are already tracking a raid.')
     else
+    	fRaid.Player.UpdateRank()
+    
         --start tracking
         curraidobj = fRaid.Raid.raidobj.new()
         curraidobj:Start()
@@ -100,9 +102,6 @@ function fRaid.Raid.Start()
         curraidobj:UpdateListed()
         
        	fRaid.Raid.UpdateTimer = fRaid:ScheduleRepeatingTimer(fRaid.Raid.TimeUp, TIMER_INTERVAL)
-
-        
-        --fRaid.Raid.TrackRaiders()
         
         fRaid:Print('Raid tracking started.')
     end
