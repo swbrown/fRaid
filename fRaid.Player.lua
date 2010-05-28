@@ -1,3 +1,5 @@
+-- vim: set softtabstop=4 tabstop=4 shiftwidth=4 noexpandtab:
+--
 -- Author      : Jessica Chen Huang
 -- Create Date : 2/13/2009 10:43 AM
 
@@ -743,6 +745,97 @@ function fRaid.Player.GetAttendancePercent(playername)
 	end
 end
 
+function fRaid.Player.GetAttendanceWindow(playername)
+
+	-- If the player doesn't exist, return an empty list.
+	playerobj = fRaid.db.global.Player.PlayerList[playername]
+	if not playerobj then
+		return {}
+	end
+
+	-- Get the last few raids corresponding to the attendance window.
+	local numraids = fRaid.db.global.Player.AttendanceTotal
+	local raids = fRaid.Raid.GetSortedRaidList(numraids)
+
+	-- Collect their missed raids.
+	local window = {}
+	for idx, data in pairs(raids) do
+		local owner = data[1]
+		local idx = data[2]
+
+		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
+		local oRaid = fRaid.Raid.raidobj.new()
+		oRaid:Load(raiddata)
+		
+		if oRaid:Present(playername) then
+			table.insert(window, true)
+		else
+			table.insert(window, false)
+		end
+	end
+
+	return window
+end
+
+function fRaid.Player.GetAttendanceWindowMessage(window)
+
+	message = "["
+	for i, attended in pairs(window) do
+		if attended then
+			message = message .. "X"
+		else
+			message = message .. "_"
+		end
+	end
+	message = message .. "]"
+
+	return message
+end
+
+function fRaid.Player.GetAttendanceUntilHigh(playername)
+
+	-- Get the player attendance window if available.
+	local window = fRaid.Player.GetAttendanceWindow(playername)
+	if #window == 0 then
+		return 0
+	end
+
+	-- If the player is already at high attendance, no more raids 
+	-- are necessary.
+	local obj = fRaid.db.global.Player.PlayerList[playername]
+	if obj.attflag == "high" then
+		return 0
+	end
+
+	-- Loop shifting in attended raids until we'd be at the threshold 
+	-- for high attendance.
+	local raidsUntilHigh = 0
+	for i = 0, #window do
+
+		-- Get the percentage attended for this window.
+		local totalAttended = 0
+		for raid, attended in pairs(window) do
+			if attended then
+				totalAttended = totalAttended + 1
+			end
+		end
+		local percentAttended = totalAttended / #window
+
+		-- If it would make us high attendance, we're done.
+		if percentAttended >= 0.75 then
+			break
+		end
+
+		-- Otherwise, we'll pretend a raid was just attended and try 
+		-- again.
+		table.remove(window, 1)
+		table.insert(window, true)
+		raidsUntilHigh = raidsUntilHigh + 1
+	end
+
+	return raidsUntilHigh
+end
+
 function fRaid.Player.PrintAttendance(channel, minpercent)
 	if not channel then
 		channel = "OFFICER"
@@ -821,6 +914,9 @@ function fRaid.Player.MakeAttendanceMessage(name)
 	end
 	
 	local obj = fRaid.db.global.Player.PlayerList[name]
+	if not obj then
+		return name .. " is not recognzied as a player"
+	end
 	local attflag = ""
 	if obj.attflag == "low" then
 		attflag = "Low Attendance"
@@ -829,7 +925,8 @@ function fRaid.Player.MakeAttendanceMessage(name)
 	else
 		attflag = "Not Calculated"
 	end
-	return name .. " is currently flagged as " .. attflag .. ".  Actual percent is " .. att .. "% over " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
+
+	return name .. " is currently flagged as " .. attflag .. ".  Actual percent is " .. att .. "% over " .. fRaid.db.global.Player.AttendanceTotal .. " raids.  Attendance window, oldest first: " .. fRaid.Player.GetAttendanceWindowMessage(fRaid.Player.GetAttendanceWindow(name)) .. ".  " .. fRaid.Player.GetAttendanceUntilHigh(name) .. " raid(s) until High Attendance"
 	--return name .. "'s attendance is " .. att .. "% for the past " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
 end
 
