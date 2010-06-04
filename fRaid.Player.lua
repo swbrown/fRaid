@@ -849,7 +849,7 @@ function fRaid.Player.PrintAttendance(channel, minpercent)
 		minpercent = 100
 	end
 	
-	local minraids = floor(minpercent * fRaid.db.global.Player.AttendanceTotal / 100)
+	local minraids = ceil(minpercent * fRaid.db.global.Player.AttendanceTotal / 100)
 	
 	local function sortfunc(name1, name2)
 		local ret = name1 < name2
