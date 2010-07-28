@@ -96,6 +96,7 @@ local defaults = {
 			dkp = 'dkp',
 			attendance = 'att',
 			dkpcheckin = 'dkpcheck',
+			adjust = 'adjust',
 		},
 		gui = {
 			x = 100, --relative to left
@@ -148,6 +149,8 @@ local function WhisperFilter(self, event, msg)
 	elseif strfind(msg, addon.db.global.prefix.dkp) == 1 then
 		return true
 	elseif strfind(msg, addon.db.global.prefix.attendance) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.adjust) == 1 then
 		return true
 	end
 	
@@ -285,6 +288,43 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		end
 		
 		fRaid.Raid.DkpCheckin(idx, name)
+
+	elseif cmd == self.db.global.prefix.adjust then
+		--"adjust" player amount
+
+		-- Restrict to officers.
+		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer and Officer Alt", author)
+			return
+		end
+
+		-- Get player name and amount.
+		local player = nil
+		local amount = nil
+		if words[2] then
+			player = words[2]
+		end
+		if words[3] then
+			amount = tonumber(words[3])
+		end
+		if player == nil or amount == nil then
+			fRaid.Whisper2("'adjust' requires a player name and an amount of dkp", author)
+			return
+		end
+
+		-- Get old DKP of the player.
+		local obj = fRaid.db.global.Player.PlayerList[fRaid:Capitalize(strlower(strtrim(player)))]
+		if obj == nil then
+			fRaid.Whisper2("no such player '" .. player .. "'", author)
+			return
+		end
+		oldDkp = obj.dkp
+
+		-- Adjust and inform about the adjustment.
+		message = author .. " manually adjusted " .. player .. " by " .. amount .. " dkp; dkp previously was " .. oldDkp
+		fRaid.Player.AddDkp(player, amount, message)
+		fList:AnnounceInChannels(message, {strsplit("\n", fList.db.global.printlist.channels)})
+		fList:AnnounceInChat(message, fList:CreateChatList(fList.db.global.printlist.officer, fList.db.global.printlist.guild, fList.db.global.printlist.raid))
 	end
 end
 
