@@ -186,14 +186,14 @@ function fRaid.Boss.View()
 		mf.eb_dkpaward:SetWidth(60)
 		mf.eb_dkpaward:SetNumeric(true)
 		mf.eb_dkpaward:SetNumber(0)
-		mf.eb_dkpaward:SetScript('OnEnterPressed', function() 
+		mf.eb_dkpaward:SetScript('OnEnterPressed', function(this) 
 			if this:GetNumber() > 0 then
 				--save the dkp for this boss
 			end
 			this:ClearFocus()
 			--this:SetNumber(0)
 		end)
-		mf.eb_dkpaward:SetScript('OnEscapePressed', function()
+		mf.eb_dkpaward:SetScript('OnEscapePressed', function(this)
 			this:ClearFocus()
 			--reset text to original value
 		end)

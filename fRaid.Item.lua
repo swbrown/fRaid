@@ -351,13 +351,13 @@ function fRaid.Item.View()
 		mf.search = ''
 		ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
 		ui:SetWidth(mf.table.width)
-		ui:SetScript('OnEnterPressed', function()
+		ui:SetScript('OnEnterPressed', function(this)
 		    this:ClearFocus()
 		    if mf.table.selectedindex == 0 then
 		    	mf:NewPlayer()
 		    end
 	    end)
-    	ui:SetScript('OnTextChanged', function()
+    	ui:SetScript('OnTextChanged', function(this)
 	        --print('text changed')
 	        if this:GetText() ~= mf.search then
 		        mf.table.selectedindex = 0
@@ -379,7 +379,7 @@ function fRaid.Item.View()
 	    ui:SetFrameLevel(4)
 	    ui:SetWidth(ui:GetTextWidth())
 	    ui:SetHeight(ui:GetTextHeight())
-	    ui:SetScript('OnClick', function() mf:NewPlayer() end)
+	    ui:SetScript('OnClick', function(this) mf:NewPlayer() end)
 	    ui:SetPoint('RIGHT', mf.eb_search, 'RIGHT', -4, 0)
 	    ui:Hide()
     

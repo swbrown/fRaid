@@ -690,7 +690,7 @@ function fRaidBid.CreateGUI()
 	button:GetFontString():SetFontObject(GameFontHighlightLarge)
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() addon:Scan()  end)
+	button:SetScript('OnClick', function(this) addon:Scan()  end)
 	button:SetPoint('TOPRIGHT', mw, 'TOPRIGHT', -padding, -padding)
 	
 	--Announce items for bid
@@ -698,7 +698,7 @@ function fRaidBid.CreateGUI()
 	button:SetText('  >Items')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() addon.AnnounceBidItems() end)
+	button:SetScript('OnClick', function(this) addon.AnnounceBidItems() end)
 	button:SetPoint('TOPLEFT', mw.titles[2], 'BOTTOMLEFT', 0, -4)
 
 	--Announce current winners button
@@ -706,7 +706,7 @@ function fRaidBid.CreateGUI()
 	button:SetText('  >Winners')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() addon.AnnounceWinningBids()  end)
+	button:SetScript('OnClick', function(this) addon.AnnounceWinningBids()  end)
 	button:SetPoint('TOPLEFT', mw.buttons[2], 'BOTTOMLEFT', 0, -4)
 	
 	--Info button
@@ -714,7 +714,7 @@ function fRaidBid.CreateGUI()
 	button:SetText('Info >')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function()
+	button:SetScript('OnClick', function(this)
 	end)
 	button:SetPoint('TOPLEFT', mw.buttons[3], 'BOTTOMLEFT', 0,-padding)
 	
@@ -738,7 +738,7 @@ function fRaidBid.CreateGUI()
 	ui:SetWidth(60)
 	ui:SetNumeric(true)
 	ui:SetNumber(0)
-	ui:SetScript('OnEnterPressed', function() 
+	ui:SetScript('OnEnterPressed', function(this) 
 		
 		local items = BIDLIST.GetList()
 		local iteminfo = items[mw_items.selecteditemindex]
@@ -759,7 +759,7 @@ function fRaidBid.CreateGUI()
 	button:SetText('Clear')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function() BIDLIST.Clear()  end)
+	button:SetScript('OnClick', function(this) BIDLIST.Clear()  end)
 	button:SetPoint('BOTTOMLEFT', mw, 'BOTTOMLEFT', padding+8, padding+8)
 	
 	--Close button
@@ -767,26 +767,26 @@ function fRaidBid.CreateGUI()
 	button:SetText('Close')
 	button:SetWidth(button:GetTextWidth())
 	button:SetHeight(button:GetTextHeight())
-	button:SetScript('OnClick', function()
+	button:SetScript('OnClick', function(this)
 		mw:Toggle()
 	end)
 	button:SetPoint('BOTTOMRIGHT', mw, 'BOTTOMRIGHT', -padding-8, padding+8)
 	
 	--Scripts for mainwindow
-	mw:SetScript('OnShow', function()
+	mw:SetScript('OnShow', function(this)
 		--check if we need refreshing
 		if this.needRefresh then
 			this:Refresh()
 		end
 		tinsert(UISpecialFrames,this:GetName())
 	end)
-	mw:SetScript('OnHide', function()
+	mw:SetScript('OnHide', function(this)
 		this:SaveLocation()
 	end)
 	
 	--Scripts for mw_items
 	--drag and drop
-	mw_items:SetScript('OnReceiveDrag', function()
+	mw_items:SetScript('OnReceiveDrag', function(this)
 		local infoType, id, link = GetCursorInfo()
 		if infoType == 'item' then
 			BIDLIST.AddItem(link)
@@ -1017,17 +1017,17 @@ function fRaidBid.CreateGUI()
 		highlight:Hide()
 		
 		ui.itemindex= 0
-		ui:SetScript('OnEnter', function()
+		ui:SetScript('OnEnter', function(this)
 			this.highlight:Show()
 			GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
 			GameTooltip:SetPoint('TOPLEFT', mw, 'TOPRIGHT', 0, 0)
 			GameTooltip:SetHyperlink('item:'..BIDLIST.GetList()[this.itemindex].id)
 		end)
-		ui:SetScript('OnLeave', function()
+		ui:SetScript('OnLeave', function(this)
 			this.highlight:Hide()
 			GameTooltip:FadeOut()
 		end)
-		ui:SetScript('OnClick', function()
+		ui:SetScript('OnClick', function(this)
 			mw_items.selecteditemindex = this.itemindex
 			
 			local items = BIDLIST.GetList()
@@ -1067,7 +1067,7 @@ function fRaidBid.CreateGUI()
 		  --insets are for the bgFile
 	})
 
-	slider:SetScript('OnValueChanged', function()
+	slider:SetScript('OnValueChanged', function(this)
 		mw:LoadItemRows(this:GetValue())
 	end)
 	
@@ -1167,7 +1167,7 @@ function fRaidBid.CreateGUI()
 		highlight:Hide()
 		
 		ui.itemindex= 0
-		ui:SetScript('OnClick', function()
+		ui:SetScript('OnClick', function(this)
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
 			if iteminfo then
@@ -1263,7 +1263,7 @@ function fRaidBid.CreateGUI()
 		end
 		
 		ui.itemindex= 0
-		ui:SetScript('OnEnterPressed', function()
+		ui:SetScript('OnEnterPressed', function(this)
 			--save new value
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
@@ -1276,7 +1276,7 @@ function fRaidBid.CreateGUI()
 			end
 			this:ClearFocus()
 		end)
-		ui:SetScript('OnEscapePressed', function()
+		ui:SetScript('OnEscapePressed', function(this)
 			--restore old value
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
@@ -1286,7 +1286,7 @@ function fRaidBid.CreateGUI()
 			end
 			this:ClearFocus()
 		end)
-		ui:SetScript('OnEditFocusGained', function()
+		ui:SetScript('OnEditFocusGained', function(this)
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
 			if iteminfo then
@@ -1320,7 +1320,7 @@ function fRaidBid.CreateGUI()
 		end
 		
 		ui.itemindex= 0
-		ui:SetScript('OnClick', function()
+		ui:SetScript('OnClick', function(this)
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
 			if iteminfo then
@@ -1401,7 +1401,7 @@ function fRaidBid.CreateGUI()
 		  --insets are for the bgFile
 	})
 
-	slider:SetScript('OnValueChanged', function()
+	slider:SetScript('OnValueChanged', function(this)
 		mw:LoadBidRows(this:GetValue())
 	end)
 	

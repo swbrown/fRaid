@@ -398,7 +398,7 @@ function fRaid.Raid.View()
     	ui:SetWidth(60)
     	ui:SetNumeric(true)
     	ui:SetNumber(0)
-    	ui:SetScript('OnEnterPressed', function() 
+    	ui:SetScript('OnEnterPressed', function(this) 
     		if this:GetNumber() > 0 then
     			if fRaid.Raid.IsTracking() then
     				curraidobj:AddDkpCharge(this:GetNumber())
@@ -422,7 +422,7 @@ function fRaid.Raid.View()
     	ui:SetText('Start Raid Tracking')
     	ui:SetWidth(ui:GetTextWidth())
     	ui:SetHeight(ui:GetTextHeight())
-    	ui:SetScript('OnClick', function()
+    	ui:SetScript('OnClick', function(this)
     		if fRaid.Raid.IsTracking() then
     			fRaid.Raid.Stop()
     			this.highlightspecial:Hide()
@@ -449,7 +449,7 @@ function fRaid.Raid.View()
     	ui:SetText('Start Progression Dkp Timer')
     	ui:SetWidth(ui:GetTextWidth())
     	ui:SetHeight(ui:GetTextHeight())
-    	ui:SetScript('OnClick', function()
+    	ui:SetScript('OnClick', function(this)
     		if fRaid.db.global.Raid.CurrentRaid then
     			if not fRaid.db.global.Raid.IsAwardProgressionTimerOn then
     				fRaid.Raid.StartProgressionDkpTimer()

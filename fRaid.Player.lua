@@ -1302,13 +1302,13 @@ function fRaid.Player.View()
         mf.search = ''
         ui:SetPoint('TOPLEFT', prevui, 'BOTTOMLEFT', 0, -5)
         ui:SetWidth(mf.table.width)
-        ui:SetScript('OnEnterPressed', function()
+        ui:SetScript('OnEnterPressed', function(this)
             this:ClearFocus()
             if mf.table.selectedindex == 0 then
                 mf:NewPlayer()
             end
         end)
-        ui:SetScript('OnTextChanged', function()
+        ui:SetScript('OnTextChanged', function(this)
             --print('text changed')
             if this:GetText() ~= mf.search then
                 mf.table.selectedindex = 0
@@ -1330,7 +1330,7 @@ function fRaid.Player.View()
         ui:SetFrameLevel(4)
         ui:SetWidth(ui:GetTextWidth())
         ui:SetHeight(ui:GetTextHeight())
-        ui:SetScript('OnClick', function() mf:NewPlayer() end)
+        ui:SetScript('OnClick', function(this) mf:NewPlayer() end)
         ui:SetPoint('RIGHT', mf.eb_search, 'RIGHT', -4, 0)
         ui:Hide()
         
@@ -1362,7 +1362,7 @@ function fRaid.Player.View()
         mf.eb_role = fLibGUI.CreateEditBox2(mf, '#')
         mf.eb_role:SetPoint('TOPLEFT', prevui, 'TOPRIGHT', 5, 0)
         mf.eb_role:SetText('')
-        mf.eb_role:SetScript('OnEnterPressed', function() 
+        mf.eb_role:SetScript('OnEnterPressed', function(this) 
             local itemnum, itemobj = mf:SelectedData()
             if itemobj then
                 itemobj.role = this:GetText()
@@ -1382,7 +1382,7 @@ function fRaid.Player.View()
         ui:SetFrameLevel(4)
         ui:SetWidth(ui:GetTextWidth())
         ui:SetHeight(ui:GetTextHeight())
-        ui:SetScript('OnClick', function()
+        ui:SetScript('OnClick', function(this)
         	if mf.title_name:GetText() then
         		fRaid.Player.DeletePlayer(mf.title_name:GetText())
         	end
@@ -1410,7 +1410,7 @@ function fRaid.Player.View()
         mf.eb_dkpnote:SetPoint('TOPLEFT', mf.eb_dkpchange, 'BOTTOMLEFT', 0, -5)
         mf.eb_dkpnote:SetWidth(100)
         
-        mf.eb_dkpchange:SetScript('OnEscapePressed', function()
+        mf.eb_dkpchange:SetScript('OnEscapePressed', function(this)
             local num = tonumber(this:GetText())
             if not num then
                 this:SetText(0)
@@ -1419,7 +1419,7 @@ function fRaid.Player.View()
             end
             this:ClearFocus()
         end)
-        mf.eb_dkpchange:SetScript('OnEnterPressed', function()
+        mf.eb_dkpchange:SetScript('OnEnterPressed', function(this)
             local num = tonumber(this:GetText())
             if not num then
                 this:SetText(0)
@@ -1429,10 +1429,10 @@ function fRaid.Player.View()
             mf.eb_dkpnote:SetFocus()
             mf.eb_dkpnote:HighlightText()
         end)
-        mf.eb_dkpnote:SetScript('OnEscapePressed', function()
+        mf.eb_dkpnote:SetScript('OnEscapePressed', function(this)
             this:ClearFocus()
         end)
-        mf.eb_dkpnote:SetScript('OnEnterPressed', function()
+        mf.eb_dkpnote:SetScript('OnEnterPressed', function(this)
             local name, playerobj = mf:RetrieveData()
             if playerobj then
                 local amount = tonumber(mf.eb_dkpchange:GetText())
