@@ -3,6 +3,7 @@
 ## Description: Tamrah's raiding addon
 ## SavedVariables: fRaidDB
 ## Dependencies: fLib
+## X-Compatible-With: 40000
 
 embeds.xml
 fRaid.lua
