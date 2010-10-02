@@ -1,3 +1,4 @@
+-- vim: set softtabstop=4 tabstop=4 shiftwidth=4 noexpandtab:
 -- Author      : Jessica Chen Huang
 -- Create Date : 1/1/2009 12:36:55 AM
 

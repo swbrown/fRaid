@@ -1,3 +1,4 @@
+-- vim: set softtabstop=4 tabstop=4 shiftwidth=4 noexpandtab:
 --AceAddon-3.0
 --AceConsole-3.0
 --AceEvent-3.0

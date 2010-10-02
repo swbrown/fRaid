@@ -1,3 +1,4 @@
+-- vim: set softtabstop=4 tabstop=4 shiftwidth=4 noexpandtab:
 fRaidBid = {}
 local addon = fRaidBid
 local NAME = 'fRaidBid'
