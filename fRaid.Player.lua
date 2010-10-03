@@ -305,7 +305,7 @@ function LIST.Purge()
 					i = 0
 				end
 			end
-			fRaid:Print(count " entries purged.")
+			fRaid:Print(count .. " entries purged.")
 		end
 	end
 
