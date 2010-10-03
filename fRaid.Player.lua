@@ -315,7 +315,8 @@ function LIST.Purge()
 	--save purge date cap
 	fRaid.db.global.Player.ChangeList.Purge.datecap = purgedatecap
 	
-	fRaid:Print("Purge complete.  Run LIST.RecalculateDkpTest() to verify dkp.")
+	fRaid:Print("Purge complete.  Verifying the new DKP matches up.")
+	LIST.RecalculateDkpTest()
 end
 
 function LIST.RefreshGuildInfo()
