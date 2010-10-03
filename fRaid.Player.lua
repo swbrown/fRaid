@@ -270,21 +270,51 @@ function LIST.CalculateDkp(capdate)
 	return nametodkp, latesttimestamp
 end
 
+--fixes the timestamps of winnerlist and oldlist entries (they used to 
+--have the year last rather than first)
+function LIST.FixTime()
+
+	--XXX for now, 'fix' it by just deleting it all
+	fList.db.global.oldlist = {}
+	fRaid.db.global.fRaidBid.winnerlist = {}
+end
+
 --removes 'dkp' entries in the changelist older than 40 days
 --updates Purge Data: purge date cap and purge start entries
 function LIST.Purge()
-	--calculate the purge date cap
-	local obj = fLib.GetTimestampObj()
-	obj = fLib.AddDays(obj, -40)
-	local purgedatecap = fLib.GetTimestamp(obj)
-	
+
+	--create a new RaidList with only the raids recent enough to be 
+	--worth keeping (the ones required for attendance)
+	local numraids = fRaid.db.global.Player.AttendanceTotal
+	local recentRaids = fRaid.Raid.GetSortedRaidList(numraids)
+	if #recentRaids == 0 then
+		fRaid:Print("No raids to purge")
+		return
+	end
+	local purgedatecap = fRaid.db.global.Raid.RaidList[recentRaids[1][1]][recentRaids[1][2]].StartTime
+	fRaid:Print("Purging entries older than " .. purgedatecap)
+	local newRaidList = {}
+	for _, data in pairs(recentRaids) do
+		local owner = data[1]
+		local idx = data[2]
+
+		--initialize the owner if necessary
+		if newRaidList[owner] == nil then
+			newRaidList[owner] = {}
+		end
+
+		--copy the raid
+		tinsert(newRaidList[owner], fRaid.db.global.Raid.RaidList[owner][idx])
+	end
+	fRaid.db.global.Raid.RaidList = newRaidList
+
 	--create new purge start entries
 	local nametodkp = LIST.CalculateDkp(purgedatecap)
 	local newpurgestartentries = {}
 	for name, dkp in pairs(nametodkp) do
 		tinsert(newpurgestartentries, {name, 'dkp', 'purgestart', purgedatecap, 0, dkp})
 	end
-	
+
 	--remove old changelist entries
 	local entry
 	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
@@ -311,10 +341,28 @@ function LIST.Purge()
 
 	--replace old purge start entries
 	fRaid.db.global.Player.ChangeList["*Purge"] = newpurgestartentries
-	
+
 	--save purge date cap
 	fRaid.db.global.Player.ChangeList["*Purge"].datecap = purgedatecap
-	
+
+	--purge winnerlist entries that are older than our oldest raid
+	local newWinnerlist = {}
+	for _, data in pairs(fRaid.db.global.fRaidBid.winnerlist) do
+		if data.time > purgedatecap then
+			tinsert(newWinnerlist, data)
+		end
+	end
+	fRaid.db.global.fRaidBid.winnerlist = newWinnerlist
+
+	--purge old lists
+	local newOldlist = {}
+	for _, data in pairs(fList.db.global.oldlist) do
+		if data.starttime > purgedatecap then
+			tinsert(newOldlist, data)
+		end
+	end
+	fList.db.global.oldlist = newOldlist
+
 	fRaid:Print("Purge complete.  Verifying the new DKP matches up.")
 	LIST.RecalculateDkpTest()
 end

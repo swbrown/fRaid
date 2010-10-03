@@ -604,7 +604,7 @@ function fRaidBid.ChargeDKP(iteminfo, bidinfo)
 			link = iteminfo.link,
 			name = bidinfo.name,
 			amount = bidinfo.actual,
-			time = date("%m/%d/%y %H:%M:%S")
+			time = date("!%y/%m/%d %H:%M:%S")
 		}
 		tinsert(db.winnerlist, winnerinfo)
 		bidinfo.charged = true
