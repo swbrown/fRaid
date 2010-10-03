@@ -187,11 +187,11 @@ function LIST.RecalculateDkp()
 		newdkp = nametodkp[name]
 		if not newdkp then
 			if obj.dkp ~= 0 then
-				fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = 0")
+				fRaid:Print("Discrepancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = 0")
 				obj.dkp = 0
 			end
 		elseif newdkp ~= obj.dkp then
-			fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = " .. newdkp)
+			fRaid:Print("Discrepancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = " .. newdkp)
 			obj.dkp = newdkp
 		end
 		nametodkp[name] = nil
@@ -215,10 +215,10 @@ function LIST.RecalculateDkpTest()
 		newdkp = nametodkp[name]
 		if not newdkp then
 			if obj.dkp ~= 0 then
-				fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = 0")
+				fRaid:Print("Discrepancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = 0")
 			end
 		elseif newdkp ~= obj.dkp then
-			fRaid:Print("Discrempancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = " .. newdkp)
+			fRaid:Print("Discrepancy: " .. name .. " current dkp = " .. obj.dkp .. ", calculated dkp = " .. newdkp)
 		end
 		nametodkp[name] = nil
 	end
