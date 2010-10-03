@@ -288,7 +288,7 @@ function LIST.Purge()
 	--remove old changelist entries
 	local entry
 	for user, changelist in pairs(fRaid.db.global.Player.ChangeList) do
-		if user ~= 'Purge' then
+		if user ~= '*Purge' then
 			fRaid:Print("Purging " .. user .. "'s changelist...")
 			local count = 0
 			local i = 1
@@ -310,10 +310,10 @@ function LIST.Purge()
 	end
 
 	--replace old purge start entries
-	fRaid.db.global.Player.ChangeList.Purge = newpurgestartentries
+	fRaid.db.global.Player.ChangeList["*Purge"] = newpurgestartentries
 	
 	--save purge date cap
-	fRaid.db.global.Player.ChangeList.Purge.datecap = purgedatecap
+	fRaid.db.global.Player.ChangeList["*Purge"].datecap = purgedatecap
 	
 	fRaid:Print("Purge complete.  Verifying the new DKP matches up.")
 	LIST.RecalculateDkpTest()
