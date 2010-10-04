@@ -658,7 +658,7 @@ function fRaid.View()
 		button:SetText('  >List...')
 		button:SetWidth(button:GetTextWidth())
 		button:SetHeight(button:GetTextHeight())
-		button:SetScript('OnClick', function(this) print('List... button clicked')  end)
+		button:SetScript('OnClick', function(this) fList.GUI:Toggle() end)
 		button:SetPoint('TOPLEFT', title, 'BOTTOMLEFT', padding, -padding)
 		bix = bix + 1
 		
