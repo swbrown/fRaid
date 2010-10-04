@@ -521,7 +521,7 @@ function fRaid.View()
 
 		--Buttons
 		mw.MenuFrame.buttons = {}
-		for i = 1, 9 do
+		for i = 1, 10 do
 			tinsert(mw.MenuFrame.buttons, fLibGUI.CreateActionButton(mw.MenuFrame))
 			mw.MenuFrame.buttons[i]:SetFrameLevel(3)
 			mw.MenuFrame.buttons[i].highlightspecial = mw.MenuFrame.buttons[i]:CreateTexture(nil, "BACKGROUND")
@@ -634,6 +634,17 @@ function fRaid.View()
 			mw:HideSubFrames()
 			mw.MenuFrame:UnselectButtons()
 			this.highlightspecial:Show()
+		end)
+		button:SetPoint('TOPLEFT', mw.MenuFrame.buttons[bix-1], 'BOTTOMLEFT', 0, -padding)
+		bix = bix + 1
+
+		--Purge Button
+		button = mw.MenuFrame.buttons[bix]
+		button:SetText('  >Purge')
+		button:SetWidth(button:GetTextWidth())
+		button:SetHeight(button:GetTextHeight())
+		button:SetScript('OnClick', function(this)
+			fRaid:ConfirmDialog2('Delete old history? (back up fRaid.lua first!)', fRaid.Player.LIST.Purge)
 		end)
 		button:SetPoint('TOPLEFT', mw.MenuFrame.buttons[bix-1], 'BOTTOMLEFT', 0, -padding)
 		bix = bix + 1
