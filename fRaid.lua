@@ -98,10 +98,19 @@ local defaults = {
 			attendance = 'att',
 			dkpcheckin = 'dkpcheck',
 			adjust = 'adjust',
+			vote = 'vote',
+			abstain = 'abstain',
+			votestart = 'votestart',
+			voteend = 'voteend',
 		},
 		gui = {
 			x = 100, --relative to left
 			y = 300, --relative to bottom
+		},
+		vote = {
+			start = nil,
+			title = nil,
+			votelist = {},
 		},
 		fRaidBid = {
 			bidlist = {},
@@ -152,6 +161,14 @@ local function WhisperFilter(self, event, msg)
 	elseif strfind(msg, addon.db.global.prefix.attendance) == 1 then
 		return true
 	elseif strfind(msg, addon.db.global.prefix.adjust) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.vote) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.abstain) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.votestart) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.voteend) == 1 then
 		return true
 	end
 	
@@ -258,6 +275,165 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		end
 		
 		fRaidBid.AddBid(playername, number, cmd)
+
+	elseif cmd == self.db.global.prefix.voteend then
+
+		if self.db.global.vote.start == nil then
+			fRaid.Whisper2("no vote is currently pending", author)
+			return
+		end
+
+		-- Check restrictions.
+		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer and Officer Alt", author)
+			return
+		end
+
+		-- LUA sucks and something as simple as a sorted dictionary by 
+		-- value is too hard for it.  So, we'll transpose the votelist 
+		-- array, then sort the keys using a custom sort function, then 
+		-- walk the result.
+		local playerVotes = {}
+		for voter, vote in pairs(self.db.global.vote.votelist) do
+			if not playerVotes[vote] then
+				playerVotes[vote] = {}
+			end
+			table.insert(playerVotes[vote], voter)
+		end
+		local rankedPlayerVoteKeys = {}
+		for player, _ in pairs(playerVotes) do
+			-- Filter abstain votes from the ranking.
+			if player ~= "*abstain*" then
+				table.insert(rankedPlayerVoteKeys, player)
+			end
+		end
+		table.sort(rankedPlayerVoteKeys, function(left, right)
+			return #playerVotes[left] > #playerVotes[right]
+		end)
+
+		-- If there was some result (winner or tie), announce it.
+		if #rankedPlayerVoteKeys > 0 then
+			local winningVotes = #playerVotes[rankedPlayerVoteKeys[1]]
+
+			-- Check for ties.
+			local tied = {}
+			for i = 2, #rankedPlayerVoteKeys do
+				local player = rankedPlayerVoteKeys[i]
+				if #playerVotes[player] == winningVotes then
+					table.insert(tied, player)
+				end
+			end
+
+			-- Handle a tie.
+			if #tied > 0 then
+				fList:AnnounceInChat("[fRaid] Voting ended; there was a tie at " .. winningVotes .. " vote(s) each; tied players: " .. rankedPlayerVoteKeys[1] .. ", " .. table.concat(tied, ", "), "RAID")
+				self.db.global.vote.result = tied
+				table.insert(self.db.global.vote.result, rankedPlayerVoteKeys[1])
+
+			-- Otherwise, handle a normal win.
+			else
+				fList:AnnounceInChat("[fRaid] Voting ended; with " .. winningVotes .. " vote(s), " .. rankedPlayerVoteKeys[1] .. " wins!", "RAID")
+				self.db.global.vote.result = rankedPlayerVoteKeys[1]
+			end
+		end
+
+		-- Display the vote totals to officers, abstain votes as well.
+		local voteTexts = {}
+		for _, player in pairs(rankedPlayerVoteKeys) do
+			table.insert(voteTexts, #playerVotes[player] .. ":" .. player .. "{" .. table.concat(playerVotes[player], ",") .. "}")
+		end
+		if playerVotes["*abstain*"] then
+			table.insert(voteTexts, #playerVotes["*abstain*"] .. ":*abstain*{" .. table.concat(playerVotes["*abstain*"], ",") .. "}")
+		end
+		fList:AnnounceInChat("[fRaid] Vote results (count:name:voters): " .. table.concat(voteTexts, ", "), "OFFICER")
+
+		-- Archive this vote, announce it closed.
+		if not self.db.global.oldvote then
+			self.db.global.oldvote = {}
+		end
+		table.insert(self.db.global.oldvote, self.db.global.vote)
+		self.db.global.vote = {
+			start = nil,
+			title = "(no title)",
+			votelist = {},
+		}
+
+	elseif cmd == self.db.global.prefix.votestart then
+
+		-- Check restrictions.
+		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer and Officer Alt", author)
+			return
+		end
+
+		-- If we have the reason for the vote, set it up and announce.
+		-- XXX Set the title from votestart's argument.
+		self.db.global.vote = {
+			start = fLib.GetTimestamp(),
+			title = "(no title)",
+			votelist = {},
+		}
+
+		fList:AnnounceInChat("[fRaid] voting started; send tells to me to vote like 'vote playername' or 'abstain'", "RAID")
+
+	elseif cmd == self.db.global.prefix.vote then
+
+		if self.db.global.vote.start == nil then
+			fRaid.Whisper2("no vote is currently pending", author)
+			return
+		end
+
+		-- They must be in the raid to be allowed to vote.
+		if not UnitInRaid(author) then
+			fRaid.Whisper2("you must be in the raid to be allowed to vote", author)
+			self:Print(author .. " attempted to vote for " .. words[2] .. " while not in the raid")
+			return
+		end
+
+
+		-- Register their vote.
+		if words[2] then
+
+			-- They must be voting for someone in the raid (especially 
+			-- to catch misspellings).
+			if not UnitInRaid(words[2]) then
+				fRaid.Whisper2("no player by that name is in the raid", author)
+				return
+			end
+
+			self.db.global.vote.votelist[author] = words[2]
+		end
+
+		-- Acknowledge their vote.
+		if self.db.global.vote.votelist[author] then
+			fRaid.Whisper2("you have voted for " .. self.db.global.vote.votelist[author], author)
+		else
+			fRaid.Whisper2("you have not voted", author)
+		end
+
+	elseif cmd == self.db.global.prefix.abstain then
+
+		if self.db.global.vote.start == nil then
+			fRaid.Whisper2("no vote is currently pending", author)
+			return
+		end
+
+		-- They must be in the raid to be allowed to vote.
+		if not UnitInRaid(author) then
+			fRaid.Whisper2("you must be in the raid to be allowed to abstain on a vote", author)
+			return
+		end
+
+		-- Register their vote.
+		self.db.global.vote.votelist[author] = "*abstain*"
+
+		-- Acknowledge their vote.
+		if self.db.global.vote.votelist[author] then
+			fRaid.Whisper2("you have voted for " .. self.db.global.vote.votelist[author], author)
+		else
+			fRaid.Whisper2("you have not voted", author)
+		end
+
 	elseif cmd == self.db.global.prefix.dkp then
 		--DKP whisper
 		--"dkp" player = author, whispertarget = author
