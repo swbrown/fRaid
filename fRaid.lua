@@ -102,6 +102,7 @@ local defaults = {
 			abstain = 'abstain',
 			votestart = 'votestart',
 			voteend = 'voteend',
+			votecount = 'votecount',
 		},
 		gui = {
 			x = 100, --relative to left
@@ -167,6 +168,8 @@ local function WhisperFilter(self, event, msg)
 	elseif strfind(msg, addon.db.global.prefix.abstain) == 1 then
 		return true
 	elseif strfind(msg, addon.db.global.prefix.votestart) == 1 then
+		return true
+	elseif strfind(msg, addon.db.global.prefix.votecount) == 1 then
 		return true
 	elseif strfind(msg, addon.db.global.prefix.voteend) == 1 then
 		return true
@@ -357,6 +360,20 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 			title = "(no title)",
 			votelist = {},
 		}
+
+	elseif cmd == self.db.global.prefix.votecount then
+
+		if self.db.global.vote.start == nil then
+			fRaid.Whisper2("no vote is currently pending", author)
+			return
+		end
+
+		local votes = 0
+		for _, _ in pairs(self.db.global.vote.votelist) do
+			votes = votes + 1
+		end
+
+		fRaid.Whisper2("number of players who have voted: " .. votes, author)
 
 	elseif cmd == self.db.global.prefix.votestart then
 
