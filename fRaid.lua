@@ -391,7 +391,7 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 			votelist = {},
 		}
 
-		fList:AnnounceInChat("[fRaid] voting started; send tells to me to vote like 'vote playername' or 'abstain'", "RAID")
+		fList:AnnounceInChat("[fRaid] voting started; send tells to me to vote like 'vote playername' or 'abstain'; if voting for someone with stupid alt codes, target them and send a tell like 'vote % t' (with no space between % and t)", "RAID")
 
 	elseif cmd == self.db.global.prefix.vote then
 
