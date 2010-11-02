@@ -418,6 +418,12 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 				return
 			end
 
+			-- They must not be voting for themself.
+			if author == words[2] then
+				fRaid.Whisper2("you can't vote for yourself", author)
+				return
+			end
+
 			self.db.global.vote.votelist[author] = words[2]
 		end
 
