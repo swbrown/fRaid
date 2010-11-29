@@ -287,8 +287,8 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		end
 
 		-- Check restrictions.
-		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" then
-			fRaid.Whisper2("unauthorized; command restricted to Officer and Officer Alt", author)
+		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" and fRaid.Player.GetRank(author) ~= "Guild Master" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", author)
 			return
 		end
 
@@ -378,8 +378,8 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	elseif cmd == self.db.global.prefix.votestart then
 
 		-- Check restrictions.
-		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" then
-			fRaid.Whisper2("unauthorized; command restricted to Officer and Officer Alt", author)
+		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" and fRaid.Player.GetRank(author) ~= "Guild Master" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", author)
 			return
 		end
 
@@ -493,8 +493,8 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		--"adjust" player amount
 
 		-- Restrict to officers.
-		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" then
-			fRaid.Whisper2("unauthorized; command restricted to Officer and Officer Alt", author)
+		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" and fRaid.Player.GetRank(author) ~= "Guild Master" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", author)
 			return
 		end
 
