@@ -1200,7 +1200,7 @@ function fRaid.Player.View()
             if not name or name == '' then
                 name = self.eb_search:GetText()
             end
-            fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', np, self, name)
+            fRaid:ConfirmDialog2('Add new player: ' .. name .. '?', function(name) np(self, name) end, name)
         end
         
         mf.table:AddHeaderClickAction(mf.ClickHeader, mf)
