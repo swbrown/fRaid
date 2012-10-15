@@ -136,7 +136,8 @@ local defaults = {
 		  Count = 0,
 		  LastModified = 0,
 		  AttendanceFlagSnapshots = {}, --list of afsnapshots: {snapshotdate, snapshot}; snapshot maps playername to 
-		  AttendanceTotal = 16,
+		  AttendanceTotal = 0,
+		  MaxAttendanceTotal = 16,
 		},
 		Raid = {
 		  RaidList = {},

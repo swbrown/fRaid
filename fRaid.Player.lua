@@ -578,23 +578,23 @@ end
 
 
 
-function fRaid.Player.SetAttendanceTotal(numraids)
-	if not numraids or numraids <= 0 then
-		fRaid:Print("Invalid number of raids specified for Attendance Total.")
-		return
-	end
-	
-	fRaid.db.global.Player.AttendanceTotal = numraids
+function fRaid.Player.SetMaxAttendanceTotal(numraids)
+       if not numraids or numraids <= 0 then
+               fRaid:Print("Invalid number of raids specified for Max Attendance Total.")
+               return
+       end
+
+       fRaid.db.global.Player.MaxAttendanceTotal = numraids
+       fRaid.Player.UpdateAttendance()
 end
 
---updates each player's attendance based on the last numraids
+
+--updates each player's attendance based on the last raids
 function fRaid.Player.UpdateAttendance()
-	local numraids = fRaid.db.global.Player.AttendanceTotal
 	
-	fRaid:Print("Updating attendance over "..numraids.." raids")
-	
-	--First, let's collect the last numraids raids
-	local temp = fRaid.Raid.GetSortedRaidList(numraids)
+	--First, let's collect the last raids
+	local temp = fRaid.Raid.GetSortedRaidList(fRaid.db.global.Player.MaxAttendanceTotal)
+	fRaid:Print("Updating attendance over " .. #temp .. " raids")
 	
 	--Now, let's zero everyone's attendance
 	for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
@@ -602,27 +602,28 @@ function fRaid.Player.UpdateAttendance()
 	end
 	
 	--Now, let's go thru each raid and add up their attendance
-	local totalraidcount = 0
 	for idx, data in pairs(temp) do
-		totalraidcount = totalraidcount + 1
 		local owner = data[1]
 		local idx = data[2]
+		fRaid:Print("checking raid " .. idx)
 		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
 		local oRaid = fRaid.Raid.raidobj.new()
 		oRaid:Load(raiddata)
 		
 		for name, oRaider in pairs(oRaid.Data.RaiderList) do
+			fRaid:Print("raider " .. name)
 			if oRaid:Present(name) then
 				local playerobj = fRaid.db.global.Player.PlayerList[name]
 				if playerobj then
+					fRaid:Print("adding attendance for " .. name)
 					playerobj.attendance = playerobj.attendance + 1
 				end
 			end
 		end
 	end
-	fRaid.db.global.Player.AttendanceTotal = totalraidcount
+	fRaid.db.global.Player.AttendanceTotal = #temp
 
-	fRaid:Print(totalraidcount, " raids scanned")
+	fRaid:Print(#temp, " raids scanned")
 end
 
 --updates the attendance flag based on player.attendance
@@ -668,113 +669,6 @@ function fRaid.Player.TakeAttendanceFlagSnapshot(time)
 end
 
 
-
---calculates attendance over numraids
---limits calculation to guildees of a certain rank
-function fRaid.Player.UpdateTempAttendance(numraids, rank)
-	if not numraids or numraids <= 0 then
-		fRaid:Print("numraids required > 0")
-		return
-	end
-	
-	fRaid:Print("Updating temp attendance over " .. numraids .. " raids")
-	
-	--First, let's collect the last numraids raids
-	local temp = fRaid.Raid.GetSortedRaidList(numraids)
-	
-	--create TempAttendance list
-	--will eventually map name -> attendance%
-	fRaid.Player.TempAttendance = {}
-	
-	--fill with guildees of a certain rank
-	for name, data in pairs(fRaid.db.global.Player.PlayerList) do
-		if rank then
-			if data.rank == rank then
-				fRaid.Player.TempAttendance[name] = 0
-			end
-		else
-			fRaid.Player.TempAttendance[name] = 0
-		end
-	end
-	
-	--Now, let's go thru each raid and add up their attendance
-	local totalraidcount = 0
-	for idx, data in pairs(temp) do
-		totalraidcount = totalraidcount + 1
-		local owner = data[1]
-		local idx = data[2]
-		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
-		local oRaid = fRaid.Raid.raidobj.new()
-		oRaid:Load(raiddata)
-		
-		for name, oRaider in pairs(oRaid.Data.RaiderList) do
-			if oRaid:Present(name) then
-				if fRaid.Player.TempAttendance[name] then
-					fRaid.Player.TempAttendance[name] = fRaid.Player.TempAttendance[name] + 1
-				end
-			end
-		end
-	end
-	
-	fRaid.Player.TempAttendanceCount = totalraidcount
-	fRaid.Player.TempAttendanceRank = rank
-	for name, num in pairs(fRaid.Player.TempAttendance) do
-		fRaid.Player.TempAttendance[name] = floor(num / totalraidcount * 100)
-	end
-
-	fRaid:Print(totalraidcount .. " raids scanned")
-end
-
-function fRaid.Player.PrintTempAttendance(channel)
-	if not fRaid.Player.TempAttendanceCount or fRaid.Player.TempAttendanceCount <= 0 then
-		fRaid:Print("No temp attendance calculated")
-	end	
-
-	local function sortfunc(name1, name2)
-		local ret = name1 < name2
-		local att1 = fRaid.Player.TempAttendance[name1]
-		local att2 = fRaid.Player.TempAttendance[name2]
-		if att1 ~= att2 then
-			ret = att1 > att2
-		end
-		return ret
-	end
-	local temp = {}
-	for name, att in pairs(fRaid.Player.TempAttendance) do
-		tinsert(temp, name)
-	end
-	sort(temp, sortfunc)
-
-	local str = "Attendance over " ..  fRaid.Player.TempAttendanceCount .. " raids"
-	if fRaid.Player.TempAttendanceRank and fRaid.Player.TempAttendanceRank ~= "" then
-		str = str .. " (" .. fRaid.Player.TempAttendanceRank .. "s only)"
-	end
-	str = str .. ":"
-	fLib.Com.Special(str, channel)
-	str = ""
-	
-	local percent = 0
-	local lastpercent = -1
-	for _, name in ipairs(temp) do
-		percent = fRaid.Player.TempAttendance[name]
-		if (percent ~= lastpercent) then
-			if lastpercent ~= -1 then
-				str = str .. "]"
-				fLib.Com.Special(str, channel)
-				str = ""
-			end
-			str = str .. percent .. "%[" .. name
-			lastpercent = percent
-		else
-			str = str .. "," .. name
-		end
-	end
-
-	if str ~= "" then
-		str = str .. "]"
-		fLib.Com.Special(str, channel)
-	end
-end
 
 function fRaid.Player.CalculatePercent(attendancecount)
 	if attendancecount > fRaid.db.global.Player.AttendanceTotal or attendancecount < 0 then
@@ -859,7 +753,7 @@ function fRaid.Player.GetAttendanceUntilHigh(playername)
 	-- Loop shifting in attended raids until we'd be at the threshold 
 	-- for high attendance.
 	local raidsUntilHigh = 0
-	for i = 0, #window do
+	for i = 0, fRaid.db.global.Player.MaxAttendanceTotal do
 
 		-- Get the percentage attended for this window.
 		local totalAttended = 0
@@ -877,7 +771,9 @@ function fRaid.Player.GetAttendanceUntilHigh(playername)
 
 		-- Otherwise, we'll pretend a raid was just attended and try 
 		-- again.
-		table.remove(window, 1)
+		if i + fRaid.db.global.Player.AttendanceTotal > fRaid.db.global.Player.MaxAttendanceTotal then
+			table.remove(window, 1)
+		end
 		table.insert(window, true)
 		raidsUntilHigh = raidsUntilHigh + 1
 	end
@@ -958,9 +854,6 @@ end
 function fRaid.Player.MakeAttendanceMessage(name)
 	name = fRaid:Capitalize(strlower(strtrim(name)))
 	local att = fRaid.Player.GetAttendancePercent(name)
-	if not fRaid.db.global.Player.AttendanceTotal then
-		fRaid.db.global.Player.AttendanceTotal = 0
-	end
 	
 	local obj = fRaid.db.global.Player.PlayerList[name]
 	if not obj then
