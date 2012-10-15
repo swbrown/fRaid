@@ -71,7 +71,7 @@ end
 --add items in the currently open loot window
 function fRaid.Item.Scan()
 	for i = 1, GetNumLootItems() do
-		if LootSlotIsItem(i) then
+		if GetLootSlotType(i) == LOOT_SLOT_ITEM then
 --			fRaid:Debug('Found slot ' .. i .. ' ' .. GetLootSlotLink(i))
 			fRaid.Item.GetObjectByLink(GetLootSlotLink(i), true)
 		end

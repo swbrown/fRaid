@@ -342,7 +342,7 @@ function addon.Scan()
 	local link
 	local loots = {}
 	for i = 1, GetNumLootItems() do
-		if LootSlotIsItem(i) then
+		if GetLootSlotType(i) == LOOT_SLOT_ITEM then
 			link = GetLootSlotLink(i)
 			fRaid:Debug('fRaidBid.Scan() found slot ' .. i .. ' ' .. link)
 			tinsert(loots, link)
