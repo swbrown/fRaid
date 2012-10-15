@@ -305,6 +305,9 @@ function myfuncs.JoinRaid(self, name, timestamp, silent)
 	--join raid
 	tinsert(oRaider.lRaidts, oTsnew)
 	fRaid:Print("JoinRaid succes: "..name.." has joined the raid")
+
+	-- Ensure they have a player entry.
+	fRaid.Player.AddDkp(name, 0, 'raid join')
 end
 function myfuncs.LeaveRaid(self, name, timestamp, silent)
 	if not timestamp then timestamp = fLib.GetTimestamp() end
