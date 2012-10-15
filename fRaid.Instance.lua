@@ -46,7 +46,9 @@ function fRaid.Instance.PLAYER_ENTERING_WORLD()
     if inInstance then-- and instanceType == 'raid' then
         --add to InstanceList if not already in it
         local zonename = GetRealZoneText()
-        local instanceobj = fRaid.Instance.GetObject(zonename, true)
+        if zonename then
+            local instanceobj = fRaid.Instance.GetObject(zonename, true)
+        end
     end
 end
 
