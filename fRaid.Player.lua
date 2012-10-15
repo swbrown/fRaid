@@ -431,13 +431,15 @@ function fRaid.Player.AddDkp(name, amount, note)
     
     --save new amount
     LIST.SetDkp(name, newamount, note)
-    
-    local objcopy2 = LIST.GetPlayer(name)
-    local msg = name .. ' - Prev Dkp: ' .. objcopy.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. objcopy2.dkp
 
-    fRaid:Print('UPDATE: ' .. msg)
-    --fRaid:Whisper(name, msg)
-    fRaid.Whisper2(msg, name)
+	if amount ~= 0 then
+		local objcopy2 = LIST.GetPlayer(name)
+		local msg = name .. ' - Prev Dkp: ' .. objcopy.dkp .. ',Amt: ' .. amount .. ',New Dkp:' .. objcopy2.dkp
+
+		fRaid:Print('UPDATE: ' .. msg)
+		--fRaid:Whisper(name, msg)
+		fRaid.Whisper2(msg, name)
+	end
 end
 
 
