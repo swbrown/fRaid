@@ -1353,7 +1353,7 @@ function fRaidBid.CreateGUI()
 						local candidateindex = 0
 						local candidatename
 						for k = 1, 40 do
-							candidatename = GetMasterLootCandidate(k)
+							candidatename = GetMasterLootCandidate(slot, k)
 							if candidatename and strlower(candidatename) == strlower(bidinfo.name) then
 								candidateindex = k
 								break
