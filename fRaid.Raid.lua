@@ -467,6 +467,27 @@ function fRaid.Raid.View()
     	end)
     	ui:SetPoint('TOPLEFT', mf, 'TOPLEFT', 5, -50)
     	
+		--Award Dkp
+    	ui = fLibGUI.CreateLabel(mf)
+    	ui:SetText('Max raids for attendance')
+    	ui:SetPoint('TOPLEFT', 5, -70)
+    	
+    	local x = ui:GetWidth() + 13
+    	
+    	ui = fLibGUI.CreateEditBox(mf, '#')
+    	ui:SetPoint('TOPLEFT', x, -70 - 1)
+    	ui:SetWidth(60)
+    	ui:SetNumeric(true)
+    	ui:SetNumber(fRaid.db.global.Player.MaxAttendanceTotal)
+    	ui:SetScript('OnEnterPressed', function(this) 
+    		if this:GetNumber() > 0 then
+				fRaid.db.global.Player.MaxAttendanceTotal = this:GetNumber()
+				fRaid.Player.UpdateAttendance()
+				fRaid:Print("Max attendance raids is now " .. fRaid.db.global.Player.MaxAttendanceTotal)
+    		end
+    		this:ClearFocus()
+    	end)
+    	
     	mf.viewedonce = true
     end
     

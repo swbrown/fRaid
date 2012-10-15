@@ -586,6 +586,7 @@ function fRaid.Player.SetMaxAttendanceTotal(numraids)
 
        fRaid.db.global.Player.MaxAttendanceTotal = numraids
        fRaid.Player.UpdateAttendance()
+       fRaid.Player.UpdateFlagByAttendance()
 end
 
 
@@ -605,17 +606,14 @@ function fRaid.Player.UpdateAttendance()
 	for idx, data in pairs(temp) do
 		local owner = data[1]
 		local idx = data[2]
-		fRaid:Print("checking raid " .. idx)
 		local raiddata = fRaid.db.global.Raid.RaidList[owner][idx]
 		local oRaid = fRaid.Raid.raidobj.new()
 		oRaid:Load(raiddata)
 		
 		for name, oRaider in pairs(oRaid.Data.RaiderList) do
-			fRaid:Print("raider " .. name)
 			if oRaid:Present(name) then
 				local playerobj = fRaid.db.global.Player.PlayerList[name]
 				if playerobj then
-					fRaid:Print("adding attendance for " .. name)
 					playerobj.attendance = playerobj.attendance + 1
 				end
 			end
