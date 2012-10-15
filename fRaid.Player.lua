@@ -587,6 +587,11 @@ function fRaid.Player.SetMaxAttendanceTotal(numraids)
        fRaid.db.global.Player.MaxAttendanceTotal = numraids
        fRaid.Player.UpdateAttendance()
        fRaid.Player.UpdateFlagByAttendance()
+
+       -- Be very forgiving when attendance is changed.
+       for playername, playerobj in pairs(fRaid.db.global.Player.PlayerList) do
+           playerobj.attflag = "high"
+       end
 end
 
 
