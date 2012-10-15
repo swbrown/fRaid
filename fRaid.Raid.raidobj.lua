@@ -234,7 +234,7 @@ end
 function myfuncs.Present(self, name, minminutes)
 	fRaid:Debug("<<raidobj.Present>>", name, minminutes)
 	if not minminutes then
-		minminutes = 15
+		minminutes = 5
 	end
 	local oRaider = self:AddRaider(name)
 
