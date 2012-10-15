@@ -481,8 +481,7 @@ function fRaid.Raid.View()
     	ui:SetNumber(fRaid.db.global.Player.MaxAttendanceTotal)
     	ui:SetScript('OnEnterPressed', function(this) 
     		if this:GetNumber() > 0 then
-				fRaid.db.global.Player.MaxAttendanceTotal = this:GetNumber()
-				fRaid.Player.UpdateAttendance()
+				fRaid.Player.SetMaxAttendanceTotal(this:GetNumber())
 				fRaid:Print("Max attendance raids is now " .. fRaid.db.global.Player.MaxAttendanceTotal)
     		end
     		this:ClearFocus()
