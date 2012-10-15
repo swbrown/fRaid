@@ -176,7 +176,7 @@ function fRaid.Raid.TrackRaiders()
     local newraiderlist = {}
     
     --track players in raid
-    for i = 1, GetNumRaidMembers() do
+    for i = 1, GetNumGroupMembers() do
         name = GetRaidRosterInfo(i)
         if name then
             --print('Found ' .. name)

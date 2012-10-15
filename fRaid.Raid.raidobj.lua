@@ -574,7 +574,7 @@ function myfuncs.UpdateRaiders(self)
 	local name, gname, grank
 	--get current raiders
 	local tCurrent = {}
-	for i = 1, GetNumRaidMembers() do
+	for i = 1, GetNumGroupMembers() do
 		name = GetRaidRosterInfo(i)
 		if name then
 			gname, grank, _ = GetGuildInfo('raid'..i)
