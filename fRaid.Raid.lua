@@ -58,8 +58,8 @@ function fRaid.Raid.GetRaidObj()
 	return curraidobj
 end
 
-function fRaid.Raid.RAID_ROSTER_UPDATE()
-	fRaid:Debug("<<fRaid.Raid.RAID_ROSTER_UPDATE>>")
+function fRaid.Raid.GROUP_ROSTER_UPDATE()
+	fRaid:Debug("<<fRaid.Raid.GROUP_ROSTER_UPDATE>>")
     if fRaid.Raid.IsTracking() then --currently tracking a raid    
         if UnitInRaid('player') then
             --update current raiders
@@ -74,9 +74,9 @@ function fRaid.Raid.RAID_ROSTER_UPDATE()
             fRaid.Raid.IsInRaid = false
         end
     else
-    	fRaid:Debug("fRaid.Raid.RAID_ROSTER_UPDATE", 'not tracking')
+    	fRaid:Debug("fRaid.Raid.GROUP_ROSTER_UPDATE", 'not tracking')
         if UnitInRaid('player') then
-        	fRaid:Debug("fRaid.Raid.RAID_ROSTER_UPDATE", 'UNIT IN RAID')
+        	fRaid:Debug("fRaid.Raid.GROUP_ROSTER_UPDATE", 'UNIT IN RAID')
             if not fRaid.Raid.IsInRaid then --only the first time join raid
                 --ask if they want to start tracking a raid
                 fRaid:ConfirmDialog2('Would you like to start raid tracking?', fRaid.Raid.Start)
