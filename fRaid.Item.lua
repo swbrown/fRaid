@@ -241,40 +241,42 @@ function fRaid.Item.View()
 			{asc = false, issorted = false, name = 'Id'},
 		}
 		function mf.lootcomparer(a, b) --a and b are ids (key for ItemList)
-			--retrieve data
-			local adata = fRaid.db.global.Item.ItemList[a]
-			local bdata = fRaid.db.global.Item.ItemList[b]
-			
-			--find the sorted column and how it is sorted
-			local SORT = mf.table.selectedcolnum
-			local SORT_ASC = mf.sortkeeper[SORT].asc
-			local SORT_NAME = mf.sortkeeper[SORT].name
-			
-			local ret = true
-			if SORT_NAME == 'Id' then
-				ret = a > b
-			elseif SORT_NAME == 'Rarity' then
-				if adata.rarity == bdata.rarity then
-					ret = adata.name > bdata.name
-				else
-					ret = adata.rarity < bdata.rarity
-				end
-			elseif SORT_NAME == 'Dkp' then
-				if adata.mindkp == bdata.mindkp then
-					ret = adata.name > bdata.name
-				else
-					ret = adata.mindkp < bdata.mindkp
-				end
-			else
-				ret = adata.name > bdata.name
-			end
-	
-			if SORT_ASC then
-				return not ret
-			else
-				return ret
-			end
+			return a < b
 		end
+--			--retrieve data
+--			local adata = fRaid.db.global.Item.ItemList[a]
+--			local bdata = fRaid.db.global.Item.ItemList[b]
+--			
+--			--find the sorted column and how it is sorted
+--			local SORT = mf.table.selectedcolnum
+--			local SORT_ASC = mf.sortkeeper[SORT].asc
+--			local SORT_NAME = mf.sortkeeper[SORT].name
+--			
+--			local ret = true
+--			if SORT_NAME == 'Id' then
+--				ret = a > b
+--			elseif SORT_NAME == 'Rarity' then
+--				if adata.rarity == bdata.rarity then
+--					ret = adata.name > bdata.name
+--				else
+--					ret = adata.rarity < bdata.rarity
+--				end
+--			elseif SORT_NAME == 'Dkp' then
+--				if adata.mindkp == bdata.mindkp then
+--					ret = adata.name > bdata.name
+--				else
+--					ret = adata.mindkp < bdata.mindkp
+--				end
+--			else
+--				ret = adata.name > bdata.name
+--			end
+--	
+--			if SORT_ASC then
+--				return not ret
+--			else
+--				return ret
+--			end
+--		end
 	
 		function mf:Sort(colnum)
 			if colnum then

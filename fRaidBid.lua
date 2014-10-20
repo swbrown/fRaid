@@ -381,6 +381,7 @@ function addon.AddBid(playername, number, cmd)
 		return
 	end
 	
+	print("AddBid: " .. playername)
 	local dkpinfo = fRaid.Player.LIST.GetPlayer(playername)
 	
 	if not cmd or (type(tonumber(cmd)) ~= 'number' and type(cmd) ~= 'string') then
