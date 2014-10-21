@@ -69,7 +69,7 @@ function BIDLIST.GetItemInfoByItemId(itemid)
 end
 
 function BIDLIST.GetBidInfo(number,playername)
-	playername = strlower(playername)
+	playername = fRaid:CardinalName(playername)
 	local iteminfo = BIDLIST.GetItemInfoByNumber(number)
 	for idx,bidinfo in ipairs(iteminfo.bids) do
 		if bidinfo.name == playername then
@@ -178,7 +178,7 @@ local function bidcomparer(a, b)
 end
 
 function BIDLIST.AddBid(playername, number, bidamount)
-	playername = strlower(playername)
+	playername = fRaid:CardinalName(playername)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
 			local alreadybid = false
@@ -237,7 +237,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 end
 
 function BIDLIST.RemoveBid(playername, number)
-	playername = strlower(playername)
+	playername = fRaid:CardinalName(playername)
 	for idx,info in ipairs(db.bidlist) do
 		if info.number == number then
 			for idx2,bid in ipairs(info.bids) do
@@ -1354,8 +1354,8 @@ function fRaidBid.CreateGUI()
 						local candidateindex = 0
 						local candidatename
 						for k = 1, 40 do
-							candidatename = GetMasterLootCandidate(slot, k)
-							if candidatename and strlower(candidatename) == strlower(bidinfo.name) then
+							candidatename = fRaid:CardinalName(GetMasterLootCandidate(slot, k))
+							if candidatename and candidatename == bidinfo.name then
 								candidateindex = k
 								break
 							end

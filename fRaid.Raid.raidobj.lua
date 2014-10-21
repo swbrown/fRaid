@@ -476,22 +476,22 @@ end
 ----marks a listed player as preset (transfers rader from lToBeP to lListed)
 function myfuncs.UpdateDkpCharge(self, idx, name, force)
 	fRaid:Debug("<<UpdateDkpCharge>>", idx, name)
+	local cardinalName = fLib:CardinalName(name)
 	local timestamp = fLib.GetTimestamp()
 	local oCharge = self.Data.lDkpCharges[idx]
 	if oCharge then
-		name = fLib:Capitalize(name)
 		fRaid:Debug("<<UpdateDkpCharge>>", "oCharge exists, timeout=", oCharge.to)
 		--check that they have an open dkp charge
-		local i = fLib.ExistsInList(oCharge.lToBeP, name)
+		local i = fLib.ExistsInList(oCharge.lToBeP, cardinalName)
 		
 		local alt = nil
 		if not i then
 			--check alt
-			alt = name
-			local nametest = fLib:Capitalize(fList.GetPlayerFromAlt(alt))
+			alt = cardinalName
+			local nametest = fLib:CardinalName(fList.GetPlayerFromAlt(alt))
 			i = fLib.ExistsInList(oCharge.lToBeP, nametest)
 			if i then
-				name =  nametest
+				name = nametest
 			end
 		end
 
@@ -499,24 +499,28 @@ function myfuncs.UpdateDkpCharge(self, idx, name, force)
 			if timestamp <= oCharge.to or force then
 				--move them from lToBeP to lListed and charge them dkp
 				tremove(oCharge.lToBeP, i)
-				fRaid.Player.AddDkp(name, oCharge.dkp/2, 'dkpcharge ' .. timestamp)
-				tinsert(oCharge.lListed, name)
+				fRaid.Player.AddDkp(cardinalName, oCharge.dkp/2, 'dkpcharge ' .. timestamp)
+				tinsert(oCharge.lListed, cardinalName)
 				if alt then
-					--fRaid:Whisper(alt, name.." was awarded dkp")
-					fRaid.Whisper2(name.." was awarded dkp", alt)
+					--fRaid:Whisper(alt, cardinalName.." was awarded 
+					--dkp")
+					fRaid.Whisper2(cardinalName.." was awarded dkp", alt)
 				end
 			else
-				--fRaid:Whisper(name, "Your listed dkp has expired.")
-				fRaid.Whisper2("Your listed dkp has expired.", name)
+				--fRaid:Whisper(cardinalName, "Your listed dkp has 
+				--expired.")
+				fRaid.Whisper2("Your listed dkp has expired.", cardinalName)
 				if alt then fRaid:Whisper(alt, "Your listed dkp has expired.") end
 			end
 		else
-			--fRaid:Whisper(name, "You have no listed dkp for number "..idx)
-			fRaid.Whisper2("You have no listed dkp for number "..idx, name)
+			--fRaid:Whisper(cardinalName, "You have no listed dkp for 
+			--number "..idx)
+			fRaid.Whisper2("You have no listed dkp for number "..idx, cardinalName)
 		end
 	else
-		--fRaid:Whisper(name, "You have no listed dkp for number "..idx)
-		fRaid.Whisper2("You have no listed dkp for number "..idx, name)
+		--fRaid:Whisper(cardinalName, "You have no listed dkp for 
+		--number "..idx)
+		fRaid.Whisper2("You have no listed dkp for number "..idx, cardinalName)
 	end
 end
 
@@ -578,7 +582,7 @@ function myfuncs.UpdateRaiders(self)
 	--get current raiders
 	local tCurrent = {}
 	for i = 1, GetNumGroupMembers() do
-		name = GetRaidRosterInfo(i)
+		name = fLib:CardinalName(GetRaidRosterInfo(i))
 		if name then
 			gname, grank, _ = GetGuildInfo('raid'..i)
 			tCurrent[name] = {gname, grank}

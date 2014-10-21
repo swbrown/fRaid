@@ -77,16 +77,14 @@ function LIST.GetPlayer(name, createnew)
     if not name or name == '' then
         return nil
     end
-    
-    --make sure name is formatted correctly
-    name = fRaid:Capitalize(strlower(strtrim(name)))
+	local cardinalName = fRaid:CardinalName(name)
 
-    local obj = fRaid.db.global.Player.PlayerList[name]
+    local obj = fRaid.db.global.Player.PlayerList[cardinalName]
     if createnew and not obj then
         obj = createplayerobj()
-        fRaid.db.global.Player.PlayerList[name] = obj --add player
+        fRaid.db.global.Player.PlayerList[cardinalName] = obj --add player
         
-        local rosterdata = fLib.Guild.GetInfo(name)
+        local rosterdata = fLib.Guild.GetInfo(cardinalName)
         if rosterdata then
 	        obj.rank = rosterdata.rank
 	        obj.class = rosterdata.class
@@ -96,9 +94,9 @@ function LIST.GetPlayer(name, createnew)
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'new', '', fRaid.db.global.Player.LastModified})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {cardinalName, 'new', '', fRaid.db.global.Player.LastModified})
         
-        fRaid:Print('Added new player ' .. name)
+        fRaid:Print('Added new player ' .. cardinalName)
     end
     
     --make copy
@@ -116,64 +114,61 @@ end
 --removes the player
 function LIST.DeletePlayer(name, note)
     --make sure name is formatted correctly
-    name = fRaid:Capitalize(strlower(strtrim(name)))
+	local cardinalName = fRaid:CardinalName(name)
     
-    local obj = fRaid.db.global.Player.PlayerList[name]
+    local obj = fRaid.db.global.Player.PlayerList[cardinalName]
     if obj then
         --zero dkp
-        LIST.SetDkp(name, 0, 'delete')
+        LIST.SetDkp(cardinalName, 0, 'delete')
         
         --delete
-        fRaid.db.global.Player.PlayerList[name] = nil
+        fRaid.db.global.Player.PlayerList[cardinalName] = nil
         fRaid.db.global.Player.Count = fRaid.db.global.Player.Count - 1
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'delete', note, fRaid.db.global.Player.LastModified, obj})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {cardinalName, 'delete', note, fRaid.db.global.Player.LastModified, obj})
     end
 end
 
 --set the player's dkp
 function LIST.SetDkp(name, dkp, note)
-    --make sure name is formatted correctly
-    name = fRaid:Capitalize(strlower(strtrim(name)))
+	local cardinalName = fRaid:CardinalName(name)
     
-    local obj = fRaid.db.global.Player.PlayerList[name]
+    local obj = fRaid.db.global.Player.PlayerList[cardinalName]
     if obj and obj.dkp ~= dkp then
         local olddkp = obj.dkp
         obj.dkp = dkp
         fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
         
         --audit
-        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'dkp', note, fRaid.db.global.Player.LastModified, olddkp, obj.dkp})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {cardinalName, 'dkp', note, fRaid.db.global.Player.LastModified, olddkp, obj.dkp})
     end
 end
 
 function LIST.Blacklist(name, reason)
-	--make sure name is formatted correctly
-	name = fRaid:Capitalize(strlower(strtrim(name)))
+	local cardinalName = fRaid:CardinalName(name)
 	
-	local obj = fRaid.db.global.Player.PlayerList[name]
+	local obj = fRaid.db.global.Player.PlayerList[cardinalName]
 	if obj then
 		obj.blacklisted = true
 		fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
 		
         --audit
-        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'blacklisted', reason, fRaid.db.global.Player.LastModified})
+        tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {cardinalName, 'blacklisted', reason, fRaid.db.global.Player.LastModified})
 	end
 end
 
 function LIST.UnBlacklist(name)
-	--make sure name is formatted correctly
-	name = fRaid:Capitalize(strlower(strtrim(name)))
+	local cardinalName = fRaid:CardinalName(name)
 	
-	local obj = fRaid.db.global.Player.PlayerList[name]
+	local obj = fRaid.db.global.Player.PlayerList[cardinalName]
 	if obj then
 		obj.blacklisted = nil
 		fRaid.db.global.Player.LastModified = fLib.GetTimestamp()
 		
 		--audit
-		tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {name, 'unblacklisted', '', fRaid.db.global.Player.LastModified})
+		tinsert(fRaid.db.global.Player.ChangeList[UnitName('player')], {cardinalName, 'unblacklisted', '', fRaid.db.global.Player.LastModified})
 	end
 end
 
@@ -488,7 +483,7 @@ end
 --i.e. 09/10/02 05:55:00, 10 would be the date of the last raid attended
 --and that raid was 10 raids ago 
 function fRaid.Player.LastRaidAttended(name)
-	name = fRaid:Capitalize(strlower(strtrim(name)))
+	local cardinalName = fRaid:CardinalName(name)
 
 	--First, let's collect the last 60 raids
 	local temp = fRaid.Raid.GetSortedRaidList()
@@ -504,7 +499,7 @@ function fRaid.Player.LastRaidAttended(name)
 		local oRaid = fRaid.Raid.raidobj.new()
 		oRaid:Load(raiddata)
 		
-		if oRaid:Present(name) then
+		if oRaid:Present(cardinalName) then
 			return raiddata.StartTime, #temp - i
 		end
 	end
@@ -684,8 +679,8 @@ function fRaid.Player.CalculatePercent(attendancecount)
 end
 
 function fRaid.Player.GetAttendancePercent(playername)
-	playername = fRaid:Capitalize(strlower(strtrim(playername)))
-	local playerobj = fRaid.db.global.Player.PlayerList[playername]
+	local cardinalName = fRaid:CardinalName(playername)
+	local playerobj = fRaid.db.global.Player.PlayerList[cardinalName]
 	if playerobj and playerobj.attendance and playerobj.attendance > 0 and fRaid.db.global.Player.AttendanceTotal > 0 then
 		return fRaid.Player.CalculatePercent(playerobj.attendance)
 	else
@@ -847,22 +842,22 @@ function fRaid.Player.PrintAttendance(channel, minpercent)
 end
 
 function fRaid.Player.MakeDkpMessage(name)
-	name = fRaid:Capitalize(strlower(strtrim(name)))
-	local obj = fRaid.db.global.Player.PlayerList[name]
+	local cardinalName = fRaid:CardinalName(name)
+	local obj = fRaid.db.global.Player.PlayerList[cardinalName]
 	local dkp = 0
 	if obj and obj.dkp > 0 then
 		dkp = obj.dkp
 	end
-	return name .. " has " .. dkp .. " dkp"
+	return cardinalName .. " has " .. dkp .. " dkp"
 end
 
 function fRaid.Player.MakeAttendanceMessage(name)
-	name = fRaid:Capitalize(strlower(strtrim(name)))
-	local att = fRaid.Player.GetAttendancePercent(name)
+	local cardinalName = fRaid:CardinalName(name)
+	local att = fRaid.Player.GetAttendancePercent(cardinalName)
 	
-	local obj = fRaid.db.global.Player.PlayerList[name]
+	local obj = fRaid.db.global.Player.PlayerList[cardinalName]
 	if not obj then
-		return name .. " is not recognzied as a player"
+		return cardinalName .. " is not recognzied as a player"
 	end
 	local attflag = ""
 	if obj.attflag == "low" then
@@ -873,8 +868,9 @@ function fRaid.Player.MakeAttendanceMessage(name)
 		attflag = "Not Calculated"
 	end
 
-	return name .. " is currently flagged as " .. attflag .. ".  Actual percent is " .. att .. "% over " .. fRaid.db.global.Player.AttendanceTotal .. " raids.  Attendance window, oldest first: " .. fRaid.Player.GetAttendanceWindowMessage(fRaid.Player.GetAttendanceWindow(name)) .. ".  " .. fRaid.Player.GetAttendanceUntilHigh(name) .. " raid(s) until High Attendance"
-	--return name .. "'s attendance is " .. att .. "% for the past " .. fRaid.db.global.Player.AttendanceTotal .. " raids."
+	return cardinalName .. " is currently flagged as " .. attflag .. ".  Actual percent is " .. att .. "% over " .. fRaid.db.global.Player.AttendanceTotal .. " raids.  Attendance window, oldest first: " .. fRaid.Player.GetAttendanceWindowMessage(fRaid.Player.GetAttendanceWindow(cardinalName)) .. ".  " .. fRaid.Player.GetAttendanceUntilHigh(cardinalName) .. " raid(s) until High Attendance"
+	--return cardinalName .. "'s attendance is " .. att .. "% for the 
+	--past " ..  fRaid.db.global.Player.AttendanceTotal .. " raids."
 end
 
 function fRaid.Player.MakeBiddingRulesMessage()

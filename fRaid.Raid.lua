@@ -177,7 +177,7 @@ function fRaid.Raid.TrackRaiders()
     
     --track players in raid
     for i = 1, GetNumGroupMembers() do
-        name = GetRaidRosterInfo(i)
+        name = fLib:CardinalName(GetRaidRosterInfo(i))
         if name then
             --print('Found ' .. name)
             local g, _, r = GetGuildInfo('raid' .. i)

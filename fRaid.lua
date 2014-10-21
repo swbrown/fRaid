@@ -253,7 +253,7 @@ end
 --handles incoming whispers
 function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	msg = strlower(strtrim(msg))
-	author = strlower(author)
+	local cardinalAuthor = addon:CardinalName(author)
 	self:Debug("<<CHAT_MSG_WHISPER>>" .. msg)
 	
 	local words = self:ParseWords(msg)
@@ -267,7 +267,7 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	if cmd == self.db.global.prefix.bid then
 		--BID whisper
 		--"bid" number amount
-		local playername = author
+		local playername = cardinalAuthor
 		local number = nil
 		local cmd = nil
 		
@@ -284,13 +284,13 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	elseif cmd == self.db.global.prefix.voteend then
 
 		if self.db.global.vote.start == nil then
-			fRaid.Whisper2("no vote is currently pending", author)
+			fRaid.Whisper2("no vote is currently pending", cardinalAuthor)
 			return
 		end
 
 		-- Check restrictions.
-		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" and fRaid.Player.GetRank(author) ~= "Guild Master" then
-			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", author)
+		if fRaid.Player.GetRank(cardinalAuthor) ~= "Officer" and fRaid.Player.GetRank(cardinalAuthor) ~= "Officer Alt" and fRaid.Player.GetRank(cardinalAuthor) ~= "Guild Master" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", cardinalAuthor)
 			return
 		end
 
@@ -366,7 +366,7 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	elseif cmd == self.db.global.prefix.votecount then
 
 		if self.db.global.vote.start == nil then
-			fRaid.Whisper2("no vote is currently pending", author)
+			fRaid.Whisper2("no vote is currently pending", cardinalAuthor)
 			return
 		end
 
@@ -375,13 +375,13 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 			votes = votes + 1
 		end
 
-		fRaid.Whisper2("number of players who have voted: " .. votes, author)
+		fRaid.Whisper2("number of players who have voted: " .. votes, cardinalAuthor)
 
 	elseif cmd == self.db.global.prefix.votestart then
 
 		-- Check restrictions.
-		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" and fRaid.Player.GetRank(author) ~= "Guild Master" then
-			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", author)
+		if fRaid.Player.GetRank(cardinalAuthor) ~= "Officer" and fRaid.Player.GetRank(cardinalAuthor) ~= "Officer Alt" and fRaid.Player.GetRank(cardinalAuthor) ~= "Guild Master" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", cardinalAuthor)
 			return
 		end
 
@@ -398,75 +398,76 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 	elseif cmd == self.db.global.prefix.vote then
 
 		if self.db.global.vote.start == nil then
-			fRaid.Whisper2("no vote is currently pending", author)
+			fRaid.Whisper2("no vote is currently pending", cardinalAuthor)
 			return
 		end
 
 		-- They must be in the raid to be allowed to vote.
-		if not UnitInRaid(author) then
-			fRaid.Whisper2("you must be in the raid to be allowed to vote", author)
-			self:Print(author .. " attempted to vote for " .. words[2] .. " while not in the raid")
+		if not fRaid:NameInRaid(cardinalAuthor) then
+			fRaid.Whisper2("you must be in the raid to be allowed to vote", cardinalAuthor)
+			self:Print(cardinalAuthor .. " attempted to vote for " .. words[2] .. " while not in the raid")
 			return
 		end
 
 
 		-- Register their vote.
 		if words[2] then
+			local cardinalName = fRaid:CardinalName(words[2])
 
 			-- They must be voting for someone in the raid (especially 
 			-- to catch misspellings).
-			if not UnitInRaid(words[2]) then
-				fRaid.Whisper2("no player by that name is in the raid", author)
+			if not fRaid:NameInRaid(cardinalName) then
+				fRaid.Whisper2("no player by that name is in the raid", cardinalAuthor)
 				return
 			end
 
 			-- They must not be voting for themself.
-			if author == words[2] then
-				fRaid.Whisper2("you can't vote for yourself", author)
+			if cardinalAuthor == cardinalName then
+				fRaid.Whisper2("you can't vote for yourself", cardinalAuthor)
 				return
 			end
 
-			self.db.global.vote.votelist[author] = words[2]
+			self.db.global.vote.votelist[cardinalAuthor] = cardinalName
 		end
 
 		-- Acknowledge their vote.
-		if self.db.global.vote.votelist[author] then
-			fRaid.Whisper2("you have voted for " .. self.db.global.vote.votelist[author], author)
+		if self.db.global.vote.votelist[cardinalAuthor] then
+			fRaid.Whisper2("you have voted for " .. self.db.global.vote.votelist[cardinalAuthor], cardinalAuthor)
 		else
-			fRaid.Whisper2("you have not voted", author)
+			fRaid.Whisper2("you have not voted", cardinalAuthor)
 		end
 
 	elseif cmd == self.db.global.prefix.abstain then
 
 		if self.db.global.vote.start == nil then
-			fRaid.Whisper2("no vote is currently pending", author)
+			fRaid.Whisper2("no vote is currently pending", cardinalAuthor)
 			return
 		end
 
 		-- They must be in the raid to be allowed to vote.
-		if not UnitInRaid(author) then
-			fRaid.Whisper2("you must be in the raid to be allowed to abstain on a vote", author)
+		if not fRaid:NameInRaid(cardinalAuthor) then
+			fRaid.Whisper2("you must be in the raid to be allowed to abstain on a vote", cardinalAuthor)
 			return
 		end
 
 		-- Register their vote.
-		self.db.global.vote.votelist[author] = "*abstain*"
+		self.db.global.vote.votelist[cardinalAuthor] = "*abstain*"
 
 		-- Acknowledge their vote.
-		if self.db.global.vote.votelist[author] then
-			fRaid.Whisper2("you have voted for " .. self.db.global.vote.votelist[author], author)
+		if self.db.global.vote.votelist[cardinalAuthor] then
+			fRaid.Whisper2("you have voted for " .. self.db.global.vote.votelist[cardinalAuthor], cardinalAuthor)
 		else
-			fRaid.Whisper2("you have not voted", author)
+			fRaid.Whisper2("you have not voted", cardinalAuthor)
 		end
 
 	elseif cmd == self.db.global.prefix.dkp then
 		--DKP whisper
 		--"dkp" player = author, whispertarget = author
 		--"dkp name" player = name, whispertarget = author
-		local player = author
-		local whispertarget = author
+		local player = cardinalAuthor
+		local whispertarget = cardinalAuthor
 		if words[2] then
-			player = words[2]
+			player = fRaid:CardinalName(words[2])
 		end
 		
 		--fRaid.Player.WhisperDkp(player, whispertarget)
@@ -475,15 +476,15 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		--Attendance whisper
 		--"att" player = author, whispertarget = author
 		--"att name" player = name, whispertarget = author
-		local player = author
-		local whispertarget = author
+		local player = cardinalAuthor
+		local whispertarget = cardinalAuthor
 		if words[2] then
-			player = words[2]
+			player = fRaid:CardinalName(words[2])
 		end
 		
 		fRaid.Player.WhisperCommand("att", player, whispertarget)
 	elseif cmd == self.db.global.prefix.dkpcheckin then
-		local name = author
+		local name = cardinalAuthor
 		local idx = 0
 		if words[2] then
 			idx = tonumber(words[2])
@@ -495,8 +496,8 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		--"adjust" player amount
 
 		-- Restrict to officers.
-		if fRaid.Player.GetRank(author) ~= "Officer" and fRaid.Player.GetRank(author) ~= "Officer Alt" and fRaid.Player.GetRank(author) ~= "Guild Master" then
-			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", author)
+		if fRaid.Player.GetRank(cardinalAuthor) ~= "Officer" and fRaid.Player.GetRank(cardinalAuthor) ~= "Officer Alt" and fRaid.Player.GetRank(cardinalAuthor) ~= "Guild Master" then
+			fRaid.Whisper2("unauthorized; command restricted to Officer, Officer Alt, Guild Master", cardinalAuthor)
 			return
 		end
 
@@ -504,26 +505,26 @@ function addon:CHAT_MSG_WHISPER(eventName, msg, author, lang, status, ...)
 		local player = nil
 		local amount = nil
 		if words[2] then
-			player = words[2]
+			player = fRaid:CardinalName(words[2])
 		end
 		if words[3] then
 			amount = tonumber(words[3])
 		end
 		if player == nil or amount == nil then
-			fRaid.Whisper2("'adjust' requires a player name and an amount of dkp", author)
+			fRaid.Whisper2("'adjust' requires a player name and an amount of dkp", cardinalAuthor)
 			return
 		end
 
 		-- Get old DKP of the player.
-		local obj = fRaid.db.global.Player.PlayerList[fRaid:Capitalize(strlower(strtrim(player)))]
+		local obj = fRaid.db.global.Player.PlayerList[player]
 		if obj == nil then
-			fRaid.Whisper2("no such player '" .. player .. "'", author)
+			fRaid.Whisper2("no such player '" .. player .. "'", cardinalAuthor)
 			return
 		end
 		oldDkp = obj.dkp
 
 		-- Adjust and inform about the adjustment.
-		message = author .. " manually adjusted " .. player .. " by " .. amount .. " dkp; dkp previously was " .. oldDkp
+		message = cardinalAuthor .. " manually adjusted " .. player .. " by " .. amount .. " dkp; dkp previously was " .. oldDkp
 		fRaid.Player.AddDkp(player, amount, message)
 		fList:AnnounceInChannels(message, {strsplit("\n", fList.db.global.printlist.channels)})
 		fList:AnnounceInChat(message, fList:CreateChatList(fList.db.global.printlist.officer, fList.db.global.printlist.guild, fList.db.global.printlist.raid))
