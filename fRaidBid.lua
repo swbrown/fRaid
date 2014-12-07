@@ -94,7 +94,7 @@ function BIDLIST.AddItem(data)
 		
 		--check if itemlink already in the list
 		for idx,info in ipairs(db.bidlist) do
-			if info.id == itemlink then
+			if info.link == itemlink then
 				--increment count
 				matched = true
 				info.count = info.count + 1
