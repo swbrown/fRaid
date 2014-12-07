@@ -92,9 +92,9 @@ function BIDLIST.AddItem(data)
 		--extract id
 		itemid = fRaid:ExtractItemId(itemlink)
 		
-		--check if itemid already in the list
+		--check if itemlink already in the list
 		for idx,info in ipairs(db.bidlist) do
-			if info.id == itemid then
+			if info.id == itemlink then
 				--increment count
 				matched = true
 				info.count = info.count + 1
@@ -115,7 +115,7 @@ function BIDLIST.AddItem(data)
 				bids = {} --list of bidinfos
 			})
 			
-			local obj = fRaid.Item.GetObjectById(itemid, true)
+			local obj = fRaid.Item.GetObjectByLink(itemlink, true)
 			
 			db.bidnumber = db.bidnumber + 1
 		end
@@ -201,7 +201,7 @@ function BIDLIST.AddBid(playername, number, bidamount)
 			
 			if not alreadybid then
 				--add new bid
-				local lootinfo = fRaid.Item.GetObjectById(info.id)
+				local lootinfo = fRaid.Item.GetObjectByLink(info.link)
 				local x = 0
 				if lootinfo then
 					x = lootinfo.mindkp
@@ -420,7 +420,7 @@ function addon.AddBid(playername, number, cmd)
 				return
 			end
 		elseif cmd == 'min' then
-			local lootinfo = fRaid.Item.GetObjectById(iteminfo.id)
+			local lootinfo = fRaid.Item.GetObjectByLink(iteminfo.link)
 			if lootinfo then
 				amount = tonumber(lootinfo.mindkp)
 			else
@@ -448,7 +448,7 @@ function addon.AddBid(playername, number, cmd)
 		return
 	end
 	
-	local lootinfo = fRaid.Item.GetObjectById(iteminfo.id)
+	local lootinfo = fRaid.Item.GetObjectByLink(iteminfo.link)
 	if lootinfo and lootinfo.mindkp > 0 then
 		local xdkp = 0
 		if dkpinfo then
@@ -744,7 +744,7 @@ function fRaidBid.CreateGUI()
 		
 		local items = BIDLIST.GetList()
 		local iteminfo = items[mw_items.selecteditemindex]
-		local obj = fRaid.Item.GetObjectById(iteminfo.id)
+		local obj = fRaid.Item.GetObjectByLink(iteminfo.link)
 		if obj then
 			obj.mindkp = this:GetNumber()
 		end
@@ -1034,7 +1034,7 @@ function fRaidBid.CreateGUI()
 			
 			local items = BIDLIST.GetList()
 			local iteminfo = items[mw_items.selecteditemindex]
-			local obj = fRaid.Item.GetObjectById(iteminfo.id, true)
+			local obj = fRaid.Item.GetObjectByLink(iteminfo.link, true)
 			if obj then
 				mw.title_id:SetText(iteminfo.id)
 				mw.eb_mindkp:SetNumber(obj.mindkp)

@@ -36,7 +36,7 @@ end
 function fRaid.Item.Count(recount)
     if recount then
         local count = 0
-        for id, data in pairs(fRaid.db.global.Item.ItemList) do
+        for link, data in pairs(fRaid.db.global.Item.ItemList) do
             count = count + 1
         end
         fRaid.db.global.Item.Count = count
@@ -47,21 +47,16 @@ end
 
 
 
-function fRaid.Item.GetObjectByLink(itemlink, createnew)
-	--extract id
-	local itemid = fRaid:ExtractItemId(itemlink)
-	return fRaid.Item.GetObjectById(itemid, createnew)
-end
-
 --returns itemobj
-function fRaid.Item.GetObjectById(itemid, createnew)
-    local obj = fRaid.db.global.Item.ItemList[itemid]
+function fRaid.Item.GetObjectByLink(itemlink, createnew)
+    local obj = fRaid.db.global.Item.ItemList[itemlink]
     if not obj and createnew then
 		--save
-		local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemid)
+		local itemid = fRaid:ExtractItemId(itemlink)
+		local itemName, _, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture = GetItemInfo(itemid)
 
-		obj = createitemobj(itemName, itemLink, itemRarity, 0)
-		fRaid.db.global.Item.ItemList[itemid] = obj
+		obj = createitemobj(itemName, itemlink, itemRarity, 0)
+		fRaid.db.global.Item.ItemList[itemlink] = obj
 		fRaid.db.global.Item.Count = fRaid.db.global.Item.Count + 1
 		fRaid.db.global.Item.LastModified = fLib.GetTimestamp()
 	end
@@ -84,7 +79,7 @@ function fRaid.Item.View()
 	
 	if not mf.viewedonce then
 		--create index table
-		mf.index_to_id = {}
+		mf.index_to_link = {}
 		mf.lastmodified = 0--fRaid.db.global.Item.LastModified
         mf.table = fLibGUI.Table.CreateTable(mf, mf:GetWidth() - 10, 200, 4)
         
@@ -93,23 +88,23 @@ function fRaid.Item.View()
                 index = self.table.selectedindex
             end
             
-            local id, data
-            id = self.index_to_id[index]
-            data = fRaid.db.global.Item.ItemList[id]
+            local link, data
+            link = self.index_to_link[index]
+            data = fRaid.db.global.Item.ItemList[link]
             
-            return id, data
+            return link, data
         end
         
         function mf:RefreshIndex(force)
             if mf.lastmodified ~= fRaid.db.global.Item.LastModified or force then
-                table.wipe(mf.index_to_id)
+                table.wipe(mf.index_to_link)
                 mf.lastmodified = fRaid.db.global.Item.LastModified
                 
-                for id, data in pairs(fRaid.db.global.Item.ItemList) do
-                    tinsert(mf.index_to_id, id)
+                for link, data in pairs(fRaid.db.global.Item.ItemList) do
+                    tinsert(mf.index_to_link, link)
                 end
                 
-                local max = #mf.index_to_id - mf.table.rowcount + 1
+                local max = #mf.index_to_link - mf.table.rowcount + 1
                 if max < 1 then
                     max = 1
                 end
@@ -296,7 +291,7 @@ function fRaid.Item.View()
 					end
 					mf.sortkeeper[colnum].issorted = true
 				end
-				table.sort(mf.index_to_id, mf.lootcomparer)
+				table.sort(mf.index_to_link, mf.lootcomparer)
 			end
 			
 			mf.sortdirty = false
