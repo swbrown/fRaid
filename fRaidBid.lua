@@ -60,9 +60,9 @@ function BIDLIST.GetItemInfoByNumber(number)
 	end
 end
 
-function BIDLIST.GetItemInfoByItemId(itemid)
+function BIDLIST.GetItemInfoByItemLink(itemlink)
 	for idx,info in ipairs(db.bidlist) do
-		if info.id == itemid then
+		if info.link == itemlink then
 			return info
 		end
 	end
@@ -125,15 +125,11 @@ function BIDLIST.AddItem(data)
 end
 
 function BIDLIST.RemoveItem(itemlink)
-	local itemid
-	if type(itemlink) == 'string' then
-		itemid = fRaid:ExtractItemId(itemlink)
-	end
 
 	--print('REMOVEITEM')
 	for idx,info in ipairs(db.bidlist) do
-		print(idx .. '-matching '..info.id .. ' and ' .. itemid)
-		if info.id == itemid then
+		print(idx .. '-matching '..info.link .. ' and ' .. itemlink)
+		if info.link == itemlink then
 			--print('matched')
 			if info.count == 1 then
 				--print('count = 1')
@@ -549,8 +545,7 @@ function fRaidBid.CHAT_MSG_LOOT(eventName, msg)
 	end
 	
 	if name and link then
-		local itemid = fRaid:ExtractItemId(link)
-		local iteminfo = BIDLIST.GetItemInfoByItemId(itemid)
+		local iteminfo = BIDLIST.GetItemInfoByItemLink(link)
 		if iteminfo and iteminfo.isopen then --the item is up for bid and open
 			local bidinfo = BIDLIST.GetBidInfo(iteminfo.number, name)
 			if bidinfo and bidinfo.winner and not bidinfo.awarded then	--player has bid on that item
